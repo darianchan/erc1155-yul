@@ -15,7 +15,7 @@ object "ERC1155" {
   // this "code" node is the single executable code of the object. 
   code {
     // store caller as owner in the owner storage slot
-    sstore(ownerSlot(), caller())
+    sstore(0, caller())
 
     // deploy the contract
     datacopy(0, dataoffset("Runtime"), datasize("Runtime"))
@@ -29,8 +29,8 @@ object "ERC1155" {
       // in most programming languages, it'll evaluate all the case statements, even if one before it is true
       // in yul, it will stop once it finds the first case statemnet that matches
       switch selector()
-      // mint(address,uint256,uint256,bytes)
-      case 0x731133e9 {
+      // mint(address,uint256,uint256)
+      case 0x156e29f6 {
         // decode calldata as value types
         // require(to != address(0))
         // if to address is a smart contract, require that it implements onERC1155Received
@@ -38,7 +38,7 @@ object "ERC1155" {
         let id := decodeAsUint(1)
         let value := decodeAsUint(2)
 
-        mint()
+        _mint(to, id, value)
       }
 
       // mintBatch(address,uint256[],uint256[],bytes)
@@ -96,6 +96,7 @@ object "ERC1155" {
 
 
       /* --------- CALLDATA DECODING --------- */
+      /// @dev decode function selector
       function selector() -> s {
         // load calldata from offset 0 and divide to get only first 4 bytes
         s := div(calldataload(0), 0x100000000000000000000000000000000000000000000000000000000)
@@ -103,18 +104,23 @@ object "ERC1155" {
 
       /// @dev proper checks to ensure it is a valid adddress
       function decodeAsAddress(offset) -> v {
+        // decode the calldata at the given offset
         v := decodeAsUint(offset)
+        // checks whether it is the zero address and reverts if so
         if iszero(iszero(and(v, not(0xffffffffffffffffffffffffffffffffffffffff)))) {
             revert(0, 0)
         }
       }
 
-      /// @dev
+      /// @dev decode calldata at given offset
       function decodeAsUint(offset) -> v {
+          // 4 bytes to skip the function selector
           let pos := add(4, mul(offset, 0x20))
+          // check if there is 32 bytes of calldata left to read
           if lt(calldatasize(), add(pos, 0x20)) {
               revert(0, 0)
           }
+          // return the value at the specified position in calldata
           v := calldataload(pos)
       }
 
@@ -124,17 +130,19 @@ object "ERC1155" {
         o := sload(ownerSlot())
       }
 
-      // used to return the value that you pass into the function
+      /// @dev used to return the value that you pass into the function
       function returnUint(v) {
+        // store value into memory first and then return it
         mstore(0, v)
         return(0, 0x20)
       }
 
+      /// @dev used to return the value 1, which represents true
       function returnTrue() {
         returnUint(1)
       }
 
-      function mint(account, id, amount, data) {
+      function _mint(account, id, amount) {
         // balances[to][id] += value
           // get offset of where balance mapping is stored
           // get offset of where balances[to][id] is stored

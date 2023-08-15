@@ -36,7 +36,7 @@ contract ERC1155Test is Test {
     }
 
     function testMintToEOA() public {
-        (bool success, bytes memory data) = address(token).call(abi.encodeWithSelector(0x731133e9, address(123), 1, 1, ""));
+        (bool success, bytes memory data) = address(token).call(abi.encodeWithSelector(0x156e29f6, address(123), 1, 1));
         assertTrue(success);
         console.logBytes(data);
     }
