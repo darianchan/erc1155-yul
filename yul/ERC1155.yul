@@ -2,11 +2,13 @@
 STORAGE LAYOUT:
 
 owner: slot 0
-uri: slot 1
-mapping(uint256 id => mapping(address account => uint256)) balances:
-  - keccak256(id,account) is storage slot
-mapping(address owner => mapping(address operator => bool)) isApprovedForAll: 
-  - keccak256(owner,operator) is the storage slot
+mapping(uint256 id => mapping(address account => uint256)) balances: (slot 1)
+  - firstHash = keccak256(id, 1)
+  - slot = keccak256(account, firstHash)
+mapping(address owner => mapping(address operator => bool)) operatorApprovalsSlot: (slot 2)
+  - firstHash = keccak256(owner, 2)
+  - slot = keccak256(operator, firstHash)
+uri: slot 3
 */
 
 
@@ -49,7 +51,15 @@ object "ERC1155" {
 
       // safeTransferFrom(address,address,uint256,uint256,bytes)
       case 0xf242432a {
+        let from := decodeAsAddress(0)
+        let to := decodeAsAddress(1)
+        let id := decodeAsUint(2)
+        let value := decodeAsUint(3)
+        // check if from == msg.sender or if caller is an approved operator
 
+        // check that the from address has enough balance to make the transfer
+
+        _safeTransferFrom()
       }
 
       // safeBatchTransferFrom(address,address,uint256[],uint256[],bytes)
@@ -71,12 +81,18 @@ object "ERC1155" {
 
       // setApprovalForAll(address,bool)
       case 0xa22cb465 {
+        let operator := decodeAsAddress(0)
+        let isApproved := decodeAsUint(1)
 
+        _setApprovalForAll(caller(), operator, isApproved)
       }
 
       // isApprovedForAll(address,address)
       case 0xe985e9c5 {
+        let tokenOwner := decodeAsAddress(0)
+        let operator := decodeAsAddress(1)
 
+        returnUint(_isApprovedForAll(tokenOwner, operator))
       }
 
       // burn(address,uint256,uint256)
@@ -140,9 +156,30 @@ object "ERC1155" {
         // emit mint event
       }
 
+      function _mintBatch(account, id, amount) {
+
+      }
+
       function _balanceOf(account, id) -> amount {
         let offset := _accountBalanceStorageOffset(account, id)
         amount := sload(offset)
+      }
+
+      /// @dev sets approval for all
+      function _setApprovalForAll(tokenOwner, operator, isApproved) {
+        // get offset of the isApprovedForAll mapping
+        let offset := _approvalForAllOffset(tokenOwner, operator)
+        // set the value to true or false
+        sstore(offset, isApproved)
+      }
+
+      function _isApprovedForAll(tokenOwner, operator) -> isApproved {
+        let offset := _approvalForAllOffset(tokenOwner, operator)
+        isApproved := sload(offset)
+      }
+
+      function _safeTransferFrom(from, to, id, value, data) {
+
       }
 
       /* --------- STORAGE ACCESS --------- */
@@ -150,13 +187,42 @@ object "ERC1155" {
         p := 0
       }
 
-      /// @dev get the offset for the given account's balance => balances[to][id]
-      function _accountBalanceStorageOffset(account, id) -> offset {
-        mstore(0, id)
-        mstore(0x20, account)
-        offset := keccak256(0, 0x40)
+      function balancesSlot() -> p {
+        p := 1
+      }
+
+      function _operatorApprovalsSlot() -> p {
+        p := 2
+      }
+
+        function uriSlot() -> p {
+        p := 3
       }
       
+
+      /// @dev get the offset for the given account's balance => balances[id][account]
+      function _accountBalanceStorageOffset(account, id) -> offset {
+        // firstHash = keccak256(id, balancesSlot)
+        // slot = keccak256(account, firstHash)
+        // store the first hash in memory location 0x60 to be used for second hash
+        // store id, balances slot, and account to hash later on
+        mstore(0, id)
+        mstore(0x20, balancesSlot())
+        mstore(0x40, account)
+        mstore(0x60, keccak256(0, 0x40))
+        offset := keccak256(0x40, 0x80)
+      }
+
+      /// @dev get the offset for the given operator's account approval
+      function _approvalForAllOffset(tokenOwner, operator) -> offset {
+        // firstHash = keccak256(owner, operatorApprovalsSlot) 
+        // storage slot = keccak256(operator, firstHash)
+        mstore(0, tokenOwner)
+        mstore(0x20, _operatorApprovalsSlot())
+        mstore(0x40, operator)
+        mstore(0x60, keccak256(0, 0x40))
+        offset := keccak256(0x40, 0x80)
+      }
 
       /* --------- EVENTS --------- */
 

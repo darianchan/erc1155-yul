@@ -24,23 +24,26 @@ safeBatchTransferFrom(from, to, ids, amounts, data)
 
 */
 
-interface ERC1155 {}
-
-abstract contract ERC1155Test is Test, IERC1155 {
+contract ERC1155Test is Test {
     YulDeployer yulDeployer = new YulDeployer();
 
     IERC1155 token;
+    address alice = address(123);
+    address bob = address(456);
 
     function setUp() public {
         token = IERC1155(yulDeployer.deployContract("ERC1155"));
     }
 
     function testMintToEOA() public {
-        token.mint(address(123), 1, 10);
+        vm.startPrank(alice);
 
-        (bool success1, bytes memory data1) = address(token).call(abi.encodeWithSelector(0x00fdd58e, address(123), 10));
-        assertTrue(success1);
-        console.logBytes(data1);
+        // mint Alice 10 tokens of id 1
+        token.mint(alice, 1, 10);
+        uint aliceBalance = token.balanceOf(alice, 1);
+        assertEq(aliceBalance, 10);
+        
+        vm.stopPrank();
     }
 
 
@@ -92,7 +95,13 @@ abstract contract ERC1155Test is Test, IERC1155 {
 
     // @note there is no function for just approve. It's approve all
     function testApproveAll() public {
-        
+        vm.startPrank(alice);
+
+        token.setApprovalForAll(bob, true);
+        bool isApproved = token.isApprovedForAll(alice, bob);
+        assertTrue(isApproved);
+
+        vm.stopPrank();
     }
 
     function testSafeTransferFromToEOA() public {
