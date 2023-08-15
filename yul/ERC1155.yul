@@ -4,9 +4,9 @@ STORAGE LAYOUT:
 owner: slot 0
 uri: slot 1
 mapping(uint256 id => mapping(address account => uint256)) balances:
-  - id => account => balance
+  - keccak256(id,account) is storage slot
 mapping(address owner => mapping(address operator => bool)) isApprovedForAll: 
-  - owner => operator => bool
+  - keccak256(owner,operator) is the storage slot
 */
 
 
@@ -59,7 +59,9 @@ object "ERC1155" {
 
       // balanceOf(address,uint256)
       case 0x00fdd58e {
-
+        let account := decodeAsAddress(0)
+        let id := decodeAsUint(1)
+        returnUint(_balanceOf(account, id))
       }
 
       // balanceOfBatch(address[],uint256[])
@@ -130,6 +132,37 @@ object "ERC1155" {
         o := sload(ownerSlot())
       }
 
+      function _mint(account, id, amount) {
+        let offset := _accountBalanceStorageOffset(account, id)
+        let prevBalance := sload(offset)
+        sstore(offset, add(prevBalance, amount))
+        // minted := returnTrue()
+        // emit mint event
+      }
+
+      function _balanceOf(account, id) -> amount {
+        let offset := _accountBalanceStorageOffset(account, id)
+        amount := sload(offset)
+      }
+
+      /* --------- STORAGE ACCESS --------- */
+      function ownerSlot() -> p {
+        p := 0
+      }
+
+      /// @dev get the offset for the given account's balance => balances[to][id]
+      function _accountBalanceStorageOffset(account, id) -> offset {
+        mstore(0, id)
+        mstore(0x20, account)
+        offset := keccak256(0, 0x40)
+      }
+      
+
+      /* --------- EVENTS --------- */
+
+
+
+      /* --------- HELPERS --------- */
       /// @dev used to return the value that you pass into the function
       function returnUint(v) {
         // store value into memory first and then return it
@@ -141,21 +174,6 @@ object "ERC1155" {
       function returnTrue() {
         returnUint(1)
       }
-
-      function _mint(account, id, amount) {
-        // balances[to][id] += value
-          // get offset of where balance mapping is stored
-          // get offset of where balances[to][id] is stored
-        // emit mint event
-      }
-
-      /* --------- STORAGE ACCESS --------- */
-      function ownerSlot() -> p {
-        p := 0
-      }
-      
-
-      /* --------- EVENTS --------- */
     }
   }
 }

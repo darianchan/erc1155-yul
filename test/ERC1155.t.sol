@@ -4,7 +4,7 @@ pragma solidity >=0.8.0;
 
 import "forge-std/Test.sol";
 import "./lib/YulDeployer.sol";
-
+import "./lib/IERC1155.sol";
 /*
 
 REQUIRED INTERFACE FUNCTIONS:
@@ -26,19 +26,21 @@ safeBatchTransferFrom(from, to, ids, amounts, data)
 
 interface ERC1155 {}
 
-contract ERC1155Test is Test {
+abstract contract ERC1155Test is Test, IERC1155 {
     YulDeployer yulDeployer = new YulDeployer();
 
-    ERC1155 token;
+    IERC1155 token;
 
     function setUp() public {
-        token = ERC1155(yulDeployer.deployContract("ERC1155"));
+        token = IERC1155(yulDeployer.deployContract("ERC1155"));
     }
 
     function testMintToEOA() public {
-        (bool success, bytes memory data) = address(token).call(abi.encodeWithSelector(0x156e29f6, address(123), 1, 1));
-        assertTrue(success);
-        console.logBytes(data);
+        token.mint(address(123), 1, 10);
+
+        (bool success1, bytes memory data1) = address(token).call(abi.encodeWithSelector(0x00fdd58e, address(123), 10));
+        assertTrue(success1);
+        console.logBytes(data1);
     }
 
 
