@@ -55,11 +55,9 @@ object "ERC1155" {
         let to := decodeAsAddress(1)
         let id := decodeAsUint(2)
         let value := decodeAsUint(3)
-        // check if from == msg.sender or if caller is an approved operator
+        let data := decodeAsUint(4)
 
-        // check that the from address has enough balance to make the transfer
-
-        _safeTransferFrom()
+        _safeTransferFrom(from, to, id, value, data)
       }
 
       // safeBatchTransferFrom(address,address,uint256[],uint256[],bytes)
@@ -179,7 +177,31 @@ object "ERC1155" {
       }
 
       function _safeTransferFrom(from, to, id, value, data) {
+        // check if from == msg.sender OR if caller is an approved operator
+        // todo: clean up this nested if statement check
+        let isApprovedOperator := _isApprovedForAll(from, caller())
+        if iszero(eq(caller(), from)) {
+          if iszero(isApprovedOperator) {
+            revert(0, 0)
+          }
+        }
+        // // check that the from address has enough balance to make the transfer
+        let fromBalance := _balanceOf(from, id)
+        if lt(fromBalance, value) {
+          revert(0,0)
+        }
+        // if above conditions pass, then we can update the balances
+        let prevToBalanceOffset := _accountBalanceStorageOffset(to, id)
+        let prevToBalance := sload(prevToBalanceOffset)
 
+        let prevFromBalanceOffset := _accountBalanceStorageOffset(from, id)
+        let prevFromBalance := sload(prevFromBalanceOffset)
+
+        sstore(prevToBalanceOffset, add(prevToBalance, value))  // todo: check for integer overflow here??
+        sstore(prevFromBalanceOffset, sub(prevFromBalance, value))  // todo: check for integer underflow here??
+
+        // todo: implement onERC1155Received acceptance check
+        
       }
 
       /* --------- STORAGE ACCESS --------- */
@@ -224,6 +246,7 @@ object "ERC1155" {
         offset := keccak256(0x40, 0x80)
       }
 
+
       /* --------- EVENTS --------- */
 
 
@@ -240,6 +263,7 @@ object "ERC1155" {
       function returnTrue() {
         returnUint(1)
       }
+
     }
   }
 }

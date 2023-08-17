@@ -105,7 +105,21 @@ contract ERC1155Test is Test {
     }
 
     function testSafeTransferFromToEOA() public {
+        vm.startPrank(alice);
 
+        // mint Alice 10 tokens of id 1
+        token.mint(alice, 1, 10);
+        uint aliceBalanceBefore = token.balanceOf(alice, 1);
+        uint bobBalanceBefore = token.balanceOf(bob, 1);
+        assertEq(aliceBalanceBefore, 10);
+        assertEq(bobBalanceBefore, 0);
+
+        // address,address,uint256,uint256,bytes
+        token.safeTransferFrom(alice, bob, 1, 10, "");
+        uint bobBalanceAfter = token.balanceOf(bob, 1);
+        uint aliceBalanceAfter = token.balanceOf(alice, 1);
+        assertEq(bobBalanceAfter, 10);
+        assertEq(aliceBalanceAfter, 0);
     }
 
     function testSafeTransferFromToERC1155Recipient() public {
