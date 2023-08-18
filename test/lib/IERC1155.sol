@@ -110,5 +110,7 @@ interface IERC1155 /* is ERC165 */ {
 
     function mint(address account, uint256 id, uint256 value) external;
 
+    function  mintBatch(address to, uint256[] memory ids, uint256[] memory values, bytes memory data) external;
+
     function owner() external returns (address);
 }

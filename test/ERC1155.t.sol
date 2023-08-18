@@ -41,6 +41,8 @@ contract ERC1155Test is Test {
     IERC1155 token;
     address alice = address(123);
     address bob = address(456);
+    uint256[] ids;
+    uint256[] amounts;
 
     function setUp() public {
         token = IERC1155(yulDeployer.deployContract("ERC1155"));
@@ -56,10 +58,6 @@ contract ERC1155Test is Test {
         assertEq(aliceBalance, 10);
         
         vm.stopPrank();
-
-        bytes32 slot = keccak256(abi.encode(alice, keccak256(abi.encode(uint256(1), uint256(1)))));
-        bytes32 data = vm.load(address(token), slot);
-        console.logBytes32(data);
     }
 
 
@@ -71,13 +69,18 @@ contract ERC1155Test is Test {
         // check that receiver implements the IERC1155Receiver.onERC1155Received - https://docs.openzeppelin.com/contracts/3.x/api/token/erc1155#IERC1155Receiver-onERC1155Received-address-address-uint256-uint256-bytes-
     }
 
-    function testBatchMintToEOA(
-        address to,
-        uint256[] memory ids,
-        uint256[] memory amounts,
-        bytes memory mintData
-    ) public {
+    function testBatchMintToEOA() public {
+        vm.startPrank(alice);
+        ids.push(1);
+        ids.push(2);
+        ids.push(3);
+        ids.push(5);
 
+        amounts.push(10);
+        amounts.push(10);
+        amounts.push(10);
+
+        token.mintBatch(alice, ids, amounts, "");
     }
 
     function testBatchMintToERC1155Recipient(
