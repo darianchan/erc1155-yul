@@ -7,20 +7,31 @@ import "./lib/YulDeployer.sol";
 import "./lib/IERC1155.sol";
 /*
 
-REQUIRED INTERFACE FUNCTIONS:
------------------------------
+    REQUIRED INTERFACE FUNCTIONS:
+    -----------------------------
 
-balanceOf(account, id)
+    balanceOf(account, id)
 
-balanceOfBatch(accounts, ids)
+    balanceOfBatch(accounts, ids)
 
-setApprovalForAll(operator, approved)
+    setApprovalForAll(operator, approved)
 
-isApprovedForAll(account, operator)
+    isApprovedForAll(account, operator)
 
-safeTransferFrom(from, to, id, amount, data)
+    safeTransferFrom(from, to, id, amount, data)
 
-safeBatchTransferFrom(from, to, ids, amounts, data)
+    safeBatchTransferFrom(from, to, ids, amounts, data)
+
+    REQUIRED INTERFACE EVENTS:
+    --------------------------
+
+    event TransferSingle(address indexed _operator, address indexed _from, address indexed _to, uint256 _id, uint256 _value);
+
+    event TransferBatch(address indexed _operator, address indexed _from, address indexed _to, uint256[] _ids, uint256[] _values);
+
+    event ApprovalForAll(address indexed _owner, address indexed _operator, bool _approved);
+
+    event URI(string _value, uint256 indexed _id);
 
 */
 
@@ -36,6 +47,7 @@ contract ERC1155Test is Test {
     }
 
     function testMintToEOA() public {
+        
         vm.startPrank(alice);
 
         // mint Alice 10 tokens of id 1
@@ -138,6 +150,11 @@ contract ERC1155Test is Test {
     // @note should probably also add a test for just balanceOf()
     function testBatchBalanceOf() public {
         
+    }
+
+    function testOwner() public {
+        address owner = token.owner();
+        assertEq(owner, address(yulDeployer));
     }
 
 

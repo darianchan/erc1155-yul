@@ -103,7 +103,11 @@ object "ERC1155" {
         
       }
 
-      // owner
+      // owner()
+      case 0x8da5cb5b {
+        mstore(0, _owner())
+        return(0, 0x20)
+      }
 
       default {
         // just revert if no function selector matches
@@ -142,7 +146,7 @@ object "ERC1155" {
 
       /* --------- FUNCTIONS --------- */
 
-      function owner() -> o {
+      function _owner() -> o {
         o := sload(ownerSlot())
       }
 
@@ -191,6 +195,7 @@ object "ERC1155" {
           revert(0,0)
         }
         // if above conditions pass, then we can update the balances
+        // add "value" to the balance of "to" address and subtract "value" from the balance of the "from" address
         let prevToBalanceOffset := _accountBalanceStorageOffset(to, id)
         let prevToBalance := sload(prevToBalanceOffset)
 

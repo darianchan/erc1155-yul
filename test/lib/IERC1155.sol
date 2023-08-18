@@ -109,4 +109,6 @@ interface IERC1155 /* is ERC165 */ {
     function isApprovedForAll(address _owner, address _operator) external view returns (bool);
 
     function mint(address account, uint256 id, uint256 value) external;
+
+    function owner() external returns (address);
 }
