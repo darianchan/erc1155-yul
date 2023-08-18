@@ -44,8 +44,16 @@ object "ERC1155" {
       }
 
       // mintBatch(address,uint256[],uint256[],bytes)
+      // @note ids and values arrays must have the same length
+      // @note the first 32 bytes of a dynamic array in the calldata is the length of the array, then followed by the actual values of the elements
+      // https://polygonscan.com/tx/0xa745622df0d26732e32339de9fd144511fec37140c1e190a03430a139a5c6b13 - good transaction example to decode dyanmic array calldata
       case 0x1f7fdffa {
+        let to := decodeAsAddress(0)
+        let idsLength := decodeAsUint(1)
+        let amountsLength := decodeAsUint(2)
+        let data := decodeAsUint(3)
 
+        _mintBatch()
       }
 
 
@@ -154,12 +162,24 @@ object "ERC1155" {
         let offset := _accountBalanceStorageOffset(account, id)
         let prevBalance := sload(offset)
         sstore(offset, add(prevBalance, amount))
-        // minted := returnTrue()
-        // emit mint event
+        // todo: emit mint event
       }
 
-      function _mintBatch(account, id, amount) {
+      function _mintBatch(account, idLength, amountLength) {
+        // id array and values array lengths must be the same
+        if iszero(eq(idLength, amountLength)) {
+          revert(0, 0)
+        }
 
+        // will be the 
+        let idStartingPosition := add(4, mul(2, 0x20))
+        let amountStartingPosition := add(4, mul(idLength, 0x20))
+
+        // for how many ids and values there are, call mint that many times
+        for { let i := 0} lt(i, idLength) { i := add(i, 1) } { 
+          let currentId := calldataload(add(idsStartPtr, mul(0x20, i)))
+          let currentAmount := calldataload(add(amountsStartPtr, mul(0x20, i)))
+        }
       }
 
       function _balanceOf(account, id) -> amount {

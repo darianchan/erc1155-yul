@@ -56,6 +56,10 @@ contract ERC1155Test is Test {
         assertEq(aliceBalance, 10);
         
         vm.stopPrank();
+
+        bytes32 slot = keccak256(abi.encode(alice, keccak256(abi.encode(uint256(1), uint256(1)))));
+        bytes32 data = vm.load(address(token), slot);
+        console.logBytes32(data);
     }
 
 
