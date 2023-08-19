@@ -49,31 +49,10 @@ object "ERC1155" {
       // https://polygonscan.com/tx/0xa745622df0d26732e32339de9fd144511fec37140c1e190a03430a139a5c6b13 - good transaction example to decode dyanmic array calldata
       case 0x1f7fdffa {
         let to := decodeAsAddress(0)
-        let idArrayLength := decodeAsUint(1)
-        let idArrayLength2 := decodeAsUint(2)
-        let idArrayLength3 := decodeAsUint(3)
-        let idArrayLength4 := decodeAsUint(4)
-        let idArrayLength5 := decodeAsUint(5)
-        let idArrayLength6 := decodeAsUint(6)
-        let idArrayLength7 := decodeAsUint(7)
-        let idArrayLength8 := decodeAsUint(8)
-        let idArrayLength9 := decodeAsUint(9)
-        let idArrayLength10 := decodeAsUint(10)
-        logNumber(0, idArrayLength)
-        logNumber(0, idArrayLength2)
-        logNumber(0, idArrayLength3)
-        logNumber(0, idArrayLength4)
-        logNumber(0, idArrayLength5)
-        logNumber(0, idArrayLength6)
-        logNumber(0, idArrayLength7)
-        logNumber(0, idArrayLength8)        
-        logNumber(0, idArrayLength9)
-        logNumber(0, idArrayLength10)
+        let idArrayOffset := decodeAsUint(1)
+        let amountArrayOffset := decodeAsUint(2)
 
-
-        // let amountArrayLength := decodeAsUint(idArrayLength) // offset will be after the first 32 bytes for length and then 32 bytes for each element in ids array
-
-        // _mintBatch(to, idArrayLength, amountArrayLength)
+        _mintBatch(to, idArrayOffset, amountArrayOffset)
       }
 
 
@@ -172,6 +151,11 @@ object "ERC1155" {
           v := calldataload(pos)
       }
 
+      function decodeDynamicArray(offset) -> v {
+        let positionOffset := div(offset, 0x20)
+        v := decodeAsUint(positionOffset)
+      }
+
       /* --------- FUNCTIONS --------- */
 
       function _owner() -> o {
@@ -185,18 +169,24 @@ object "ERC1155" {
         // todo: emit mint event
       }
 
-      function _mintBatch(account, idArrayLength, amountArrayLength) {
+      function _mintBatch(account, idArrayOffset, amountArrayOffset) {
         // id array and values array lengths must be the same
-        // if iszero(eq(idArrayLength, amountArrayLength)) {
-        //   revert(0, 0)
-        // }
+        let idArrayLength := decodeDynamicArray(idArrayOffset)
+        let amountArrayLength := decodeDynamicArray(amountArrayOffset)
+        if iszero(eq(idArrayLength, amountArrayLength)) {
+          revert(0, 0)
+        }
         
         // // for how many ids and values there are, call mint that many times
-        // for { let i := 0} lt(i, idArrayLength) { i := add(i, 1) } { 
-        //   let currentId := calldataload(add(idElementStartingPosition, mul(i, 0x20)))
-        //   let currentAmount := calldataload(add(amountElementStartingPosition, mul(i, 0x20)))
-        //   _mint(account, currentId, currentAmount)
-        // }
+        for { let i := 0} lt(i, idArrayLength) { i := add(i, 1) } { 
+          // todo: make this cleaner
+          let currentIdPosition := add(add(div(idArrayOffset, 0x20), 1), i)
+          let currentIdElement := decodeAsUint(currentIdPosition)
+          let currentAmountPosition := add(add(div(amountArrayOffset, 0x20), 1), i)
+          let currentAmountElement := decodeAsUint(currentAmountPosition)
+          
+          _mint(account, currentIdElement, currentAmountElement)
+        }
       }
 
       function _balanceOf(account, id) -> amount {
