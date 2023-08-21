@@ -32,6 +32,7 @@ object "ERC1155" {
       // in yul, it will stop once it finds the first case statemnet that matches
       switch selector()
       // mint(address,uint256,uint256)
+      // todo: change this function selector to include the data at the end
       case 0x156e29f6 {
         // decode calldata as value types
         // require(to != address(0))
@@ -46,8 +47,9 @@ object "ERC1155" {
       // mintBatch(address,uint256[],uint256[],bytes)
       // @note ids and values arrays must have the same length
       // @note the first 32 bytes of a dynamic array in the calldata is the length of the array, then followed by the actual values of the elements
-      // https://polygonscan.com/tx/0xa745622df0d26732e32339de9fd144511fec37140c1e190a03430a139a5c6b13 - good transaction example to decode dyanmic array calldata
+      // @note the argument position actually points to the offset in the calldata where the array data starts at
       case 0x1f7fdffa {
+        // todo: include the data
         let to := decodeAsAddress(0)
         let idArrayOffset := decodeAsUint(1)
         let amountArrayOffset := decodeAsUint(2)
@@ -69,7 +71,13 @@ object "ERC1155" {
 
       // safeBatchTransferFrom(address,address,uint256[],uint256[],bytes)
       case 0x2eb2c2d6 {
+        let from := decodeAsAddress(0)
+        let to := decodeAsAddress(1)
+        let idArrayOffset := decodeAsUint(2)
+        let amountArrayOffset := decodeAsUint(3)
+        let data := decodeAsUint(4)
 
+        _safeBatchTransferFrom(from, to, idArrayOffset, amountArrayOffset, data)
       }
 
       // balanceOf(address,uint256)
@@ -151,7 +159,8 @@ object "ERC1155" {
           v := calldataload(pos)
       }
 
-      function decodeDynamicArray(offset) -> v {
+      function decodeDynamicArrayValueAtOffset(offset) -> v {
+        // the offset value comes in as # of bytes. We divide by 32 bytes to get position number
         let positionOffset := div(offset, 0x20)
         v := decodeAsUint(positionOffset)
       }
@@ -171,20 +180,23 @@ object "ERC1155" {
 
       function _mintBatch(account, idArrayOffset, amountArrayOffset) {
         // id array and values array lengths must be the same
-        let idArrayLength := decodeDynamicArray(idArrayOffset)
-        let amountArrayLength := decodeDynamicArray(amountArrayOffset)
+        let idArrayLength := decodeDynamicArrayValueAtOffset(idArrayOffset)
+        let amountArrayLength := decodeDynamicArrayValueAtOffset(amountArrayOffset)
         if iszero(eq(idArrayLength, amountArrayLength)) {
           revert(0, 0)
         }
         
-        // // for how many ids and values there are, call mint that many times
+        // for how many ids and values there are, call mint that many times
         for { let i := 0} lt(i, idArrayLength) { i := add(i, 1) } { 
-          // todo: make this cleaner
+          // add 1 because first value is the length value
           let currentIdPosition := add(add(div(idArrayOffset, 0x20), 1), i)
           let currentIdElement := decodeAsUint(currentIdPosition)
+
+          // add 1 because first value is the length value
           let currentAmountPosition := add(add(div(amountArrayOffset, 0x20), 1), i)
           let currentAmountElement := decodeAsUint(currentAmountPosition)
           
+          // mint user the amount of tokens for the given id
           _mint(account, currentIdElement, currentAmountElement)
         }
       }
@@ -211,10 +223,8 @@ object "ERC1155" {
         // check if from == msg.sender OR if caller is an approved operator
         // todo: clean up this nested if statement check
         let isApprovedOperator := _isApprovedForAll(from, caller())
-        if iszero(eq(caller(), from)) {
-          if iszero(isApprovedOperator) {
-            revert(0, 0)
-          }
+        if and(iszero(eq(caller(), from)), iszero(isApprovedOperator))  {
+          revert(0, 0)
         }
         // // check that the from address has enough balance to make the transfer
         let fromBalance := _balanceOf(from, id)
@@ -234,6 +244,15 @@ object "ERC1155" {
 
         // todo: implement onERC1155Received acceptance check
         
+      }
+
+      function _safeBatchTransferFrom(from, to, idArrayOffset, amountArrayOffset, data) {
+        // id array and values array lengths must be the same
+        let idArrayLength := decodeDynamicArrayValueAtOffset(idArrayOffset)
+        let amountArrayLength := decodeDynamicArrayValueAtOffset(amountArrayOffset)
+        if iszero(eq(idArrayLength, amountArrayLength)) {
+          revert(0, 0)
+        }
       }
 
       /* --------- STORAGE ACCESS --------- */

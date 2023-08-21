@@ -41,6 +41,8 @@ contract ERC1155Test is Test {
     IERC1155 token;
     address alice = address(123);
     address bob = address(456);
+    address charlie = address(789);
+
     uint256[] ids;
     uint256[] amounts;
 
@@ -155,6 +157,18 @@ contract ERC1155Test is Test {
         uint aliceBalanceAfter = token.balanceOf(alice, 1);
         assertEq(bobBalanceAfter, 10);
         assertEq(aliceBalanceAfter, 0);
+
+        // testing safeTransferFrom approvals
+        // mint alice 10 more tokens and have her set bob as an approved operator
+        token.mint(alice, 1, 10);
+        token.setApprovalForAll(bob, true);
+        vm.stopPrank();
+
+        // setting bob as the function caller, transfer 10 tokens from alice to charlie
+        vm.prank(bob);
+        token.safeTransferFrom(alice, charlie, 1, 10, "");
+        uint charlieBalanceAfter = token.balanceOf(charlie, 1);
+        assertEq(charlieBalanceAfter, 10);
     }
 
     function testSafeTransferFromToERC1155Recipient() public {
@@ -163,7 +177,34 @@ contract ERC1155Test is Test {
     }
 
     function testSafeBatchTransferFromToEOA() public {
+        vm.startPrank(alice);
 
+        // mint Alice 10 tokens of id 1
+        token.mint(alice, 1, 10);
+        uint aliceBalanceBefore = token.balanceOf(alice, 1);
+        uint bobBalanceBefore = token.balanceOf(bob, 1);
+        assertEq(aliceBalanceBefore, 10);
+        assertEq(bobBalanceBefore, 0);
+
+        // mint Alice 10 tokens of id 2
+        token.mint(alice, 2, 10);
+        uint aliceBalanceBefore2 = token.balanceOf(alice, 2);
+        uint bobBalanceBefore2 = token.balanceOf(bob, 1);
+        assertEq(aliceBalanceBefore2, 10);
+        assertEq(bobBalanceBefore2, 0);
+
+        // transfer 10 tokens of id 1 and 10 tokens of id 2 from alice to bob
+        ids.push(1);
+        ids.push(2);
+
+        amounts.push(10);
+        amounts.push(10);
+
+        token.safeBatchTransferFrom(alice, bob, ids, amounts, "");
+        // uint bobBalanceAfter = token.balanceOf(bob, 1);
+        // uint aliceBalanceAfter = token.balanceOf(alice, 1);
+        // assertEq(bobBalanceAfter, 10);
+        // assertEq(aliceBalanceAfter, 0);
     }
 
     function testSafeBatchTransferFromToERC1155Recipient() public {
