@@ -226,7 +226,7 @@ object "ERC1155" {
         if and(iszero(eq(caller(), from)), iszero(isApprovedOperator))  {
           revert(0, 0)
         }
-        // // check that the from address has enough balance to make the transfer
+        // check that the from address has enough balance to make the transfer
         let fromBalance := _balanceOf(from, id)
         if lt(fromBalance, value) {
           revert(0,0)
@@ -252,6 +252,20 @@ object "ERC1155" {
         let amountArrayLength := decodeDynamicArrayValueAtOffset(amountArrayOffset)
         if iszero(eq(idArrayLength, amountArrayLength)) {
           revert(0, 0)
+        }
+
+        // for how many ids and values there are, call safeTransferFrom that many times
+        // safeTransferFrom has all the balance and opperator checks needed
+        for {let i := 0} lt(i, idArrayLength) {i := add(i, 1)} {
+          // add 1 because first value is the length value
+          let currentIdPosition := add(add(div(idArrayOffset, 0x20), 1), i)
+          let currentIdElement := decodeAsUint(currentIdPosition)
+
+          // add 1 because first value is the length value
+          let currentAmountPosition := add(add(div(amountArrayOffset, 0x20), 1), i)
+          let currentAmountElement := decodeAsUint(currentAmountPosition)
+
+          _safeTransferFrom(from, to, currentIdElement, currentAmountElement, data)
         }
       }
 

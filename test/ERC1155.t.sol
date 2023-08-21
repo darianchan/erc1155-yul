@@ -201,10 +201,15 @@ contract ERC1155Test is Test {
         amounts.push(10);
 
         token.safeBatchTransferFrom(alice, bob, ids, amounts, "");
-        // uint bobBalanceAfter = token.balanceOf(bob, 1);
-        // uint aliceBalanceAfter = token.balanceOf(alice, 1);
-        // assertEq(bobBalanceAfter, 10);
-        // assertEq(aliceBalanceAfter, 0);
+        uint bobBalanceAfter1 = token.balanceOf(bob, 1);
+        uint aliceBalanceAfter1 = token.balanceOf(alice, 1);
+        assertEq(bobBalanceAfter1, 10);
+        assertEq(aliceBalanceAfter1, 0);
+
+        uint bobBalanceAfter2 = token.balanceOf(bob, 2);
+        uint aliceBalanceAfter2 = token.balanceOf(alice, 2);
+        assertEq(bobBalanceAfter2, 10);
+        assertEq(aliceBalanceAfter2, 0);
     }
 
     function testSafeBatchTransferFromToERC1155Recipient() public {
