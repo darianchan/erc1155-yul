@@ -33,23 +33,29 @@ object "ERC1155" {
       switch selector()
       // mint(address,uint256,uint256)
       // todo: change this function selector to include the data at the end
+      /// @param to - the address to mint the tokens to
+      /// @param id - the token id to mint
+      /// @param amount - the amount of tokens to mint
+      /// @param data - data for transfer hook, not implemented
       case 0x156e29f6 {
-        // decode calldata as value types
-        // require(to != address(0))
-        // if to address is a smart contract, require that it implements onERC1155Received
+        // todo: if to address is a smart contract, require that it implements onERC1155Received
+        // decode calldata
         let to := decodeAsAddress(0)
         let id := decodeAsUint(1)
-        let value := decodeAsUint(2)
+        let amount := decodeAsUint(2)
 
-        _mint(to, id, value)
+        _mint(to, id, amount)
       }
 
       // mintBatch(address,uint256[],uint256[],bytes)
-      // @note ids and values arrays must have the same length
-      // @note the first 32 bytes of a dynamic array in the calldata is the length of the array, then followed by the actual values of the elements
-      // @note the argument position actually points to the offset in the calldata where the array data starts at
+      /// @note id and amount arrays must have the same length
+      /// @param to - the address to mint the tokens to
+      /// @param ids - the array of token ids to mint
+      /// @param amounts - the array of the amount of tokens to mint
       case 0x1f7fdffa {
         // todo: include the data
+        // the first 32 bytes of a dynamic array in the calldata is the length of the array, then followed by the actual values of the elements
+        // the argument position actually points to the offset in the calldata where the array data starts at
         let to := decodeAsAddress(0)
         let idArrayOffset := decodeAsUint(1)
         let amountArrayOffset := decodeAsUint(2)
@@ -59,17 +65,27 @@ object "ERC1155" {
 
 
       // safeTransferFrom(address,address,uint256,uint256,bytes)
+      /// @param from - address to transfer tokens from (sender)
+      /// @param to - address to transfer tokens to (receiver)
+      /// @param id - token id to transfer
+      /// @param amount - amount of tokens to transfer
+      /// @param data - data for transfer hook - not implemented
       case 0xf242432a {
         let from := decodeAsAddress(0)
         let to := decodeAsAddress(1)
         let id := decodeAsUint(2)
-        let value := decodeAsUint(3)
+        let amount := decodeAsUint(3)
         let data := decodeAsUint(4)
 
-        _safeTransferFrom(from, to, id, value, data)
+        _safeTransferFrom(from, to, id, amount, data)
       }
 
       // safeBatchTransferFrom(address,address,uint256[],uint256[],bytes)
+      /// @param from - address to transfer tokens from (sender)
+      /// @param to - address to transfer tokens to (receiver)
+      /// @param ids - array of token ids to transfer
+      /// @param amounts - array of the amount of tokens to transfer
+      /// @param data - data for transfer hook - not implemented
       case 0x2eb2c2d6 {
         let from := decodeAsAddress(0)
         let to := decodeAsAddress(1)
@@ -81,6 +97,8 @@ object "ERC1155" {
       }
 
       // balanceOf(address,uint256)
+      /// @param account - address to get the balance of
+      /// @param id - the token id to get the balance of
       case 0x00fdd58e {
         let account := decodeAsAddress(0)
         let id := decodeAsUint(1)
@@ -88,11 +106,18 @@ object "ERC1155" {
       }
 
       // balanceOfBatch(address[],uint256[])
+      /// @param accounts - array of accounts to get the balance of
+      /// @param ids - array of token ids to get the balance of
       case 0x4e1273f4 {
+        let accountArrayOffset := decodeAsUint(0)
+        let idArrayOffset := decodeAsUint(1)
 
+        _balanceOfBatch(accountArrayOffset, idArrayOffset)
       }
 
       // setApprovalForAll(address,bool)
+      /// @param operator - address to set approval as an operator for
+      /// @param isApproved - whether the given address is approved as an operator for the function caller
       case 0xa22cb465 {
         let operator := decodeAsAddress(0)
         let isApproved := decodeAsUint(1)
@@ -101,6 +126,8 @@ object "ERC1155" {
       }
 
       // isApprovedForAll(address,address)
+      /// @param tokenOwner - address of the owner of the token
+      /// @param operator - address of the operator on behalf of the given token owner
       case 0xe985e9c5 {
         let tokenOwner := decodeAsAddress(0)
         let operator := decodeAsAddress(1)
@@ -109,26 +136,34 @@ object "ERC1155" {
       }
 
       // burn(address,uint256,uint256)
+      /// @param from - address to burn tokens
+      /// @param id - token id to burn
+      /// @param amount - amount of tokens to burn
       case 0xf5298aca {
+        // require that from address is either the token owner or approved operator
 
       }
 
       // burnBatch(address,uint256[],uint256[])
+      /// @param from - address to burn tokens
+      /// @param ids - array of token ids to burn
+      /// @param amounts - array of the amount of tokens to burn
       case 0x6b20c454 {
+        // require that the from address is either the token owner or approved operator
         
       }
 
       // owner()
+      /// @return - returns the address owner of the contract
       case 0x8da5cb5b {
         mstore(0, _owner())
         return(0, 0x20)
       }
 
       default {
-        // just revert if no function selector matches
+        // revert if no function selector matches
         revert(0, 0)
       }
-
 
       /* --------- CALLDATA DECODING --------- */
       /// @dev decode function selector
@@ -165,12 +200,14 @@ object "ERC1155" {
         v := decodeAsUint(positionOffset)
       }
 
-      /* --------- FUNCTIONS --------- */
+      /* --------- INTERNAL FUNCTIONS --------- */
 
+      /// @return the address of the owner of the contract
       function _owner() -> o {
         o := sload(ownerSlot())
       }
 
+      /// @dev mints the account the amount of tokens for token id
       function _mint(account, id, amount) {
         let offset := _accountBalanceStorageOffset(account, id)
         let prevBalance := sload(offset)
@@ -178,6 +215,7 @@ object "ERC1155" {
         // todo: emit mint event
       }
 
+      /// @dev 
       function _mintBatch(account, idArrayOffset, amountArrayOffset) {
         // id array and values array lengths must be the same
         let idArrayLength := decodeDynamicArrayValueAtOffset(idArrayOffset)
@@ -201,9 +239,55 @@ object "ERC1155" {
         }
       }
 
+      /// @dev returns token balance for given address and token id
       function _balanceOf(account, id) -> amount {
         let offset := _accountBalanceStorageOffset(account, id)
         amount := sload(offset)
+      }
+
+      function _balanceOfBatch(accountArrayOffset, idArrayOffset) {
+        // account and id array must be the same length
+        let accountArrayLength := decodeDynamicArrayValueAtOffset(accountArrayOffset)
+        let idArrayLength := decodeDynamicArrayValueAtOffset(idArrayOffset)
+        if iszero(eq(accountArrayLength, idArrayLength)) {
+          revert(0, 0)
+        }
+
+        // initialize starting memory pointer position at 0x80
+        let memoryPointer := 0x80
+
+        // this is the offset to where in memory the start of the array will be
+        // first value will be the length of the array
+        mstore(memoryPointer, 0x20)
+        memoryPointer := add(memoryPointer, 0x20)
+
+        // store the array length first
+        // need to follow the abi encoding for arrays, or solidty will throw errors when trying to decode it
+        mstore(memoryPointer, accountArrayLength)
+        memoryPointer := add(memoryPointer, 0x20)
+
+        for { let i := 0 } lt(i, accountArrayLength) { i := add(i, 1) } {
+          // get current address
+          // add 1 because the first value is the length value
+          let currentAccountPosition := add(add(div(accountArrayOffset, 0x20), 1), i)
+          let currentAccountElement := decodeAsUint(currentAccountPosition)
+
+          // get current id
+          // add 1 because the first value is the length value
+          let currentIdPosition := add(add(div(idArrayOffset, 0x20), 1), i)
+          let currentIdElement := decodeAsUint(currentIdPosition)
+
+          // get token balance account for given id
+          let currentBalance := _balanceOf(currentAccountElement, currentIdElement)
+
+          // store the account balance at the current memory pointer slot
+          mstore(memoryPointer, currentBalance)
+          memoryPointer := add(memoryPointer, 0x20) // increment memory pointer
+        }
+        
+        // memory pointer starts at 0x80
+        // return data starting at position 0x80 with size to where memory pointer currently is at minus 0x80
+        return(0x80, sub(memoryPointer, 0x80))
       }
 
       /// @dev sets approval for all
@@ -219,7 +303,7 @@ object "ERC1155" {
         isApproved := sload(offset)
       }
 
-      function _safeTransferFrom(from, to, id, value, data) {
+      function _safeTransferFrom(from, to, id, amount, data) {
         // check if from == msg.sender OR if caller is an approved operator
         // todo: clean up this nested if statement check
         let isApprovedOperator := _isApprovedForAll(from, caller())
@@ -228,7 +312,7 @@ object "ERC1155" {
         }
         // check that the from address has enough balance to make the transfer
         let fromBalance := _balanceOf(from, id)
-        if lt(fromBalance, value) {
+        if lt(fromBalance, amount) {
           revert(0,0)
         }
         // if above conditions pass, then we can update the balances
@@ -239,15 +323,15 @@ object "ERC1155" {
         let prevFromBalanceOffset := _accountBalanceStorageOffset(from, id)
         let prevFromBalance := sload(prevFromBalanceOffset)
 
-        sstore(prevToBalanceOffset, add(prevToBalance, value))  // todo: check for integer overflow here??
-        sstore(prevFromBalanceOffset, sub(prevFromBalance, value))  // todo: check for integer underflow here??
+        sstore(prevToBalanceOffset, add(prevToBalance, amount))  // todo: check for integer overflow here??
+        sstore(prevFromBalanceOffset, sub(prevFromBalance, amount))  // todo: check for integer underflow here??
 
         // todo: implement onERC1155Received acceptance check
         
       }
 
       function _safeBatchTransferFrom(from, to, idArrayOffset, amountArrayOffset, data) {
-        // id array and values array lengths must be the same
+        // id array and amount array lengths must be the same
         let idArrayLength := decodeDynamicArrayValueAtOffset(idArrayOffset)
         let amountArrayLength := decodeDynamicArrayValueAtOffset(amountArrayOffset)
         if iszero(eq(idArrayLength, amountArrayLength)) {
@@ -285,7 +369,6 @@ object "ERC1155" {
         function uriSlot() -> p {
         p := 3
       }
-      
 
       /// @dev get the offset for the given account's balance => balances[id][account]
       function _accountBalanceStorageOffset(account, id) -> offset {
@@ -297,7 +380,7 @@ object "ERC1155" {
         mstore(0x20, balancesSlot())
         mstore(0x40, account)
         mstore(0x60, keccak256(0, 0x40))
-        offset := keccak256(0x40, 0x80)
+        offset := keccak256(0x40, 0x40) // takes starting position and then how many bytes from there you want to hash
       }
 
       /// @dev get the offset for the given operator's account approval
@@ -308,7 +391,7 @@ object "ERC1155" {
         mstore(0x20, _operatorApprovalsSlot())
         mstore(0x40, operator)
         mstore(0x60, keccak256(0, 0x40))
-        offset := keccak256(0x40, 0x80)
+        offset := keccak256(0x40, 0x40) // takes starting position and then how many bytes from there you want to hash
       }
 
 
@@ -328,7 +411,6 @@ object "ERC1155" {
       function returnTrue() {
         returnUint(1)
       }
-
 
       /* --------- LOGGING HELPERS --------- */
 

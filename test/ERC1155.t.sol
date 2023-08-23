@@ -45,6 +45,7 @@ contract ERC1155Test is Test {
 
     uint256[] ids;
     uint256[] amounts;
+    address[] accounts;
 
     function setUp() public {
         token = IERC1155(yulDeployer.deployContract("ERC1155"));
@@ -99,6 +100,8 @@ contract ERC1155Test is Test {
         assertEq(aliceBalance1After, 10);
         assertEq(aliceBalance2After, 10);
         assertEq(aliceBalance3After, 10);
+
+        vm.stopPrank();
     }
 
     function testBatchMintToERC1155Recipient(
@@ -210,15 +213,45 @@ contract ERC1155Test is Test {
         uint aliceBalanceAfter2 = token.balanceOf(alice, 2);
         assertEq(bobBalanceAfter2, 10);
         assertEq(aliceBalanceAfter2, 0);
+
+        vm.stopPrank();
     }
 
     function testSafeBatchTransferFromToERC1155Recipient() public {
         // receiver must implement IERC1155Receiver.onERC1155BatchReceived - https://docs.openzeppelin.com/contracts/3.x/api/token/erc1155#IERC1155Receiver-onERC1155BatchReceived-address-address-uint256---uint256---bytes-
     }
 
-    // @note should probably also add a test for just balanceOf()
-    function testBatchBalanceOf() public {
-        
+    function testBalanceOfBatch() public {
+        vm.startPrank(alice);
+
+        // mint Alice 10 tokens of id 1
+        token.mint(alice, 1, 10);
+        uint aliceBalanceBefore = token.balanceOf(alice, 1);
+        assertEq(aliceBalanceBefore, 10);
+
+        // mint Bob 1 tokens of id 1
+        token.mint(bob, 1, 10);
+        uint bobBalanceBefore = token.balanceOf(bob, 1);
+        assertEq(bobBalanceBefore, 10);
+
+        ids.push(1);
+        ids.push(1);
+
+        accounts.push(alice);
+        accounts.push(bob);
+
+
+        uint256[] memory balances = token.balanceOfBatch(accounts, ids);
+        (bool success, bytes memory data) = address(token).call(abi.encodeWithSelector(0x4e1273f4, accounts, ids));
+        // uint256[] memory stuff = abi.decode(data, (uint256[]));
+        // console.log(success);
+        console.logBytes(data);
+
+        vm.stopPrank();
+        console.log(balances[0]);
+        console.log(balances[1]);
+        // console.log(balances[0]);
+
     }
 
     function testOwner() public {
