@@ -120,7 +120,24 @@ contract ERC1155Test is Test {
         bytes memory mintData,
         uint256 burnAmount
     ) public {
+        vm.startPrank(alice);
 
+        // mint Alice 10 tokens of id 1
+        token.mint(alice, 1, 10);
+        uint aliceBalance = token.balanceOf(alice, 1);
+        assertEq(aliceBalance, 10);
+
+        // burn 5 tokens from Alice of id 1
+        token.burn(alice, 1, 5);
+        uint aliceBalanceAfter = token.balanceOf(alice, 1);
+        assertEq(aliceBalanceAfter, 5);
+
+        // burn another 5 tokens from Alice of id 1
+        token.burn(alice, 1, 5);
+        uint aliceBalanceAfter2 = token.balanceOf(alice, 1);
+        assertEq(aliceBalanceAfter2, 0);
+        
+        vm.stopPrank();
     }
 
     function testBatchBurn(

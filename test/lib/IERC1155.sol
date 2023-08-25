@@ -113,4 +113,6 @@ interface IERC1155 /* is ERC165 */ {
     function  mintBatch(address to, uint256[] memory ids, uint256[] memory values, bytes memory data) external;
 
     function owner() external returns (address);
+
+    function burn(address from, uint256 id, uint256 amount) external;
 }

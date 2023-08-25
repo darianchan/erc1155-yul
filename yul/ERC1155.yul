@@ -63,7 +63,6 @@ object "ERC1155" {
         _mintBatch(to, idArrayOffset, amountArrayOffset)
       }
 
-
       // safeTransferFrom(address,address,uint256,uint256,bytes)
       /// @param from - address to transfer tokens from (sender)
       /// @param to - address to transfer tokens to (receiver)
@@ -141,6 +140,11 @@ object "ERC1155" {
       /// @param amount - amount of tokens to burn
       case 0xf5298aca {
         // require that from address is either the token owner or approved operator
+        let from := decodeAsAddress(0)
+        let id := decodeAsUint(1)
+        let amount := decodeAsUint(2)
+
+        _burn(from, id, amount)
 
       }
 
@@ -176,7 +180,7 @@ object "ERC1155" {
       function decodeAsAddress(offset) -> v {
         // decode the calldata at the given offset
         v := decodeAsUint(offset)
-        // checks whether it is the zero address and reverts if so
+        // checks whether it is a valid address and reverts if so
         if iszero(iszero(and(v, not(0xffffffffffffffffffffffffffffffffffffffff)))) {
             revert(0, 0)
         }
@@ -304,8 +308,7 @@ object "ERC1155" {
       }
 
       function _safeTransferFrom(from, to, id, amount, data) {
-        // check if from == msg.sender OR if caller is an approved operator
-        // todo: clean up this nested if statement check
+        // check if from == msg.sender OR if msg.sender is an approved operator
         let isApprovedOperator := _isApprovedForAll(from, caller())
         if and(iszero(eq(caller(), from)), iszero(isApprovedOperator))  {
           revert(0, 0)
@@ -353,6 +356,24 @@ object "ERC1155" {
         }
       }
 
+      function _burn(from, id, amount) {
+        // check if from == msg.sender OR if msg.sender is an approved operator
+        let isApprovedOperator := _isApprovedForAll(from, caller())
+        if and(iszero(eq(caller(), from)), iszero(isApprovedOperator))  {
+          revert(0, 0)
+        }
+
+        // check that the from address has enough balance to burn tokens
+        let prevBalance := _balanceOf(from, id)
+        if lt(prevBalance, amount) {
+          revert(0,0)
+        }
+
+        // transfer to 0 address to burn tokens
+        _safeTransferFrom(from, 0, id, amount, 0)
+        // todo: emit burn event
+      }
+
       /* --------- STORAGE ACCESS --------- */
       function ownerSlot() -> p {
         p := 0
@@ -396,6 +417,7 @@ object "ERC1155" {
 
 
       /* --------- EVENTS --------- */
+      // event signature hash is just the keccack256 has of the event signature
 
 
 
@@ -410,6 +432,12 @@ object "ERC1155" {
       /// @dev used to return the value 1, which represents true
       function returnTrue() {
         returnUint(1)
+      }
+
+      /// @dev safe add to check for overflow
+      function safeAdd(a, b) -> r {
+        r := add(a, b)
+        if or(lt(r, a), lt(r, b)) { revert(0, 0) }
       }
 
       /* --------- LOGGING HELPERS --------- */
