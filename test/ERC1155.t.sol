@@ -104,22 +104,11 @@ contract ERC1155Test is Test {
         vm.stopPrank();
     }
 
-    function testBatchMintToERC1155Recipient(
-        uint256[] memory ids,
-        uint256[] memory amounts,
-        bytes memory mintData
-    ) public {
+    function testBatchMintToERC1155Recipient() public {
         // check receiver implements the IERC1155Receiver.onERC1155BatchReceived - https://docs.openzeppelin.com/contracts/3.x/api/token/erc1155#IERC1155Receiver-onERC1155BatchReceived-address-address-uint256---uint256---bytes-
     }
 
-    // @note burn isn't in the interface requirements
-    function testBurn(
-        address to,
-        uint256 id,
-        uint256 mintAmount,
-        bytes memory mintData,
-        uint256 burnAmount
-    ) public {
+    function testBurn() public {
         vm.startPrank(alice);
 
         // mint Alice 10 tokens of id 1
@@ -140,13 +129,7 @@ contract ERC1155Test is Test {
         vm.stopPrank();
     }
 
-    function testBatchBurn(
-        address to,
-        uint256[] memory ids,
-        uint256[] memory mintAmounts,
-        uint256[] memory burnAmounts,
-        bytes memory mintData
-    ) public {
+    function testBatchBurn() public {
 
     }
 
@@ -193,7 +176,6 @@ contract ERC1155Test is Test {
 
     function testSafeTransferFromToERC1155Recipient() public {
         // receiver must implement IERC1155Receiver.onERC1155Received - https://docs.openzeppelin.com/contracts/3.x/api/token/erc1155#IERC1155Receiver-onERC1155Received-address-address-uint256-uint256-bytes-
-
     }
 
     function testSafeBatchTransferFromToEOA() public {
@@ -246,7 +228,7 @@ contract ERC1155Test is Test {
         uint aliceBalanceBefore = token.balanceOf(alice, 1);
         assertEq(aliceBalanceBefore, 10);
 
-        // mint Bob 1 tokens of id 1
+        // mint Bob 10 tokens of id 1
         token.mint(bob, 1, 10);
         uint bobBalanceBefore = token.balanceOf(bob, 1);
         assertEq(bobBalanceBefore, 10);
@@ -259,16 +241,10 @@ contract ERC1155Test is Test {
 
 
         uint256[] memory balances = token.balanceOfBatch(accounts, ids);
-        (bool success, bytes memory data) = address(token).call(abi.encodeWithSelector(0x4e1273f4, accounts, ids));
-        // uint256[] memory stuff = abi.decode(data, (uint256[]));
-        // console.log(success);
-        console.logBytes(data);
+        assertEq(balances[0], 10);
+        assertEq(balances[1], 10);
 
         vm.stopPrank();
-        console.log(balances[0]);
-        console.log(balances[1]);
-        // console.log(balances[0]);
-
     }
 
     function testOwner() public {

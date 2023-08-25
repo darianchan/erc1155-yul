@@ -145,7 +145,6 @@ object "ERC1155" {
         let amount := decodeAsUint(2)
 
         _burn(from, id, amount)
-
       }
 
       // burnBatch(address,uint256[],uint256[])
@@ -154,7 +153,9 @@ object "ERC1155" {
       /// @param amounts - array of the amount of tokens to burn
       case 0x6b20c454 {
         // require that the from address is either the token owner or approved operator
-        
+        let from := decodeAsAddress(0)
+        let idArrayOffset := decodeAsUint(1)
+        let amountArrayOffset := decodeAsUint(2)
       }
 
       // owner()
