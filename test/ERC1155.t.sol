@@ -5,6 +5,7 @@ pragma solidity >=0.8.0;
 import "forge-std/Test.sol";
 import "./lib/YulDeployer.sol";
 import "./lib/IERC1155.sol";
+import "./lib/ERC1155Reciever.sol";
 /*
 
     REQUIRED INTERFACE FUNCTIONS:
@@ -37,6 +38,7 @@ import "./lib/IERC1155.sol";
 
 contract ERC1155Test is Test {
     YulDeployer yulDeployer = new YulDeployer();
+    ERC1155Reciever erc1155reciever = new ERC1155Reciever();
 
     IERC1155 token;
     address alice = address(123);
@@ -56,7 +58,7 @@ contract ERC1155Test is Test {
         vm.startPrank(alice);
 
         // mint Alice 10 tokens of id 1
-        token.mint(alice, 1, 10);
+        token.mint(alice, 1, 10, "ab");
         uint aliceBalance = token.balanceOf(alice, 1);
         assertEq(aliceBalance, 10);
         
@@ -64,12 +66,17 @@ contract ERC1155Test is Test {
     }
 
 
-    function testMintToERC1155Recipient(
-        uint256 id,
-        uint256 amount,
-        bytes memory mintData
-    ) public {
+    function testMintToERC1155Recipient() public {
         // check that receiver implements the IERC1155Receiver.onERC1155Received - https://docs.openzeppelin.com/contracts/3.x/api/token/erc1155#IERC1155Receiver-onERC1155Received-address-address-uint256-uint256-bytes-
+        address reciever = address(erc1155reciever);
+        vm.startPrank(address(reciever));
+
+        // mint smart contract 10 tokens of id 1
+        token.mint(reciever, 1, 10, "aa");
+        uint recieverBalance = token.balanceOf(reciever, 1);
+        assertEq(recieverBalance, 10);
+        
+        vm.stopPrank();
     }
 
     function testBatchMintToEOA() public {
@@ -105,14 +112,41 @@ contract ERC1155Test is Test {
     }
 
     function testBatchMintToERC1155Recipient() public {
-        // check receiver implements the IERC1155Receiver.onERC1155BatchReceived - https://docs.openzeppelin.com/contracts/3.x/api/token/erc1155#IERC1155Receiver-onERC1155BatchReceived-address-address-uint256---uint256---bytes-
+        address reciever = address(erc1155reciever);
+        vm.startPrank(address(reciever));
+
+        // create batch ids to mint
+        ids.push(1);
+        ids.push(2);
+        ids.push(3);
+
+        // create batch amounts to mint
+        amounts.push(10);
+        amounts.push(10);
+        amounts.push(10);
+
+        uint reciever1Before = token.balanceOf(reciever, 1);
+        uint reciever2Before = token.balanceOf(reciever, 2);
+        uint reciever3Before = token.balanceOf(reciever, 3);
+        assertEq(reciever1Before, 0);
+        assertEq(reciever2Before, 0);
+        assertEq(reciever3Before, 0);
+
+        token.mintBatch(reciever, ids, amounts, "");
+
+        uint recieverBalance1After = token.balanceOf(reciever, 1);
+        uint recieverBalance2After = token.balanceOf(reciever, 2);
+        uint recieverBalance3After = token.balanceOf(reciever, 3);
+        assertEq(recieverBalance1After, 10);
+        assertEq(recieverBalance2After, 10);
+        assertEq(recieverBalance3After, 10);
     }
 
     function testBurn() public {
         vm.startPrank(alice);
 
         // mint Alice 10 tokens of id 1
-        token.mint(alice, 1, 10);
+        token.mint(alice, 1, 10, "");
         uint aliceBalance = token.balanceOf(alice, 1);
         assertEq(aliceBalance, 10);
 
@@ -148,7 +182,7 @@ contract ERC1155Test is Test {
         vm.startPrank(alice);
 
         // mint Alice 10 tokens of id 1
-        token.mint(alice, 1, 10);
+        token.mint(alice, 1, 10, "");
         uint aliceBalanceBefore = token.balanceOf(alice, 1);
         uint bobBalanceBefore = token.balanceOf(bob, 1);
         assertEq(aliceBalanceBefore, 10);
@@ -163,7 +197,7 @@ contract ERC1155Test is Test {
 
         // testing safeTransferFrom approvals
         // mint alice 10 more tokens and have her set bob as an approved operator
-        token.mint(alice, 1, 10);
+        token.mint(alice, 1, 10, "");
         token.setApprovalForAll(bob, true);
         vm.stopPrank();
 
@@ -182,14 +216,14 @@ contract ERC1155Test is Test {
         vm.startPrank(alice);
 
         // mint Alice 10 tokens of id 1
-        token.mint(alice, 1, 10);
+        token.mint(alice, 1, 10, "");
         uint aliceBalanceBefore = token.balanceOf(alice, 1);
         uint bobBalanceBefore = token.balanceOf(bob, 1);
         assertEq(aliceBalanceBefore, 10);
         assertEq(bobBalanceBefore, 0);
 
         // mint Alice 10 tokens of id 2
-        token.mint(alice, 2, 10);
+        token.mint(alice, 2, 10, "");
         uint aliceBalanceBefore2 = token.balanceOf(alice, 2);
         uint bobBalanceBefore2 = token.balanceOf(bob, 1);
         assertEq(aliceBalanceBefore2, 10);
@@ -224,12 +258,12 @@ contract ERC1155Test is Test {
         vm.startPrank(alice);
 
         // mint Alice 10 tokens of id 1
-        token.mint(alice, 1, 10);
+        token.mint(alice, 1, 10, "");
         uint aliceBalanceBefore = token.balanceOf(alice, 1);
         assertEq(aliceBalanceBefore, 10);
 
         // mint Bob 10 tokens of id 1
-        token.mint(bob, 1, 10);
+        token.mint(bob, 1, 10, "");
         uint bobBalanceBefore = token.balanceOf(bob, 1);
         assertEq(bobBalanceBefore, 10);
 

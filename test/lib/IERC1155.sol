@@ -108,7 +108,7 @@ interface IERC1155 /* is ERC165 */ {
     */
     function isApprovedForAll(address _owner, address _operator) external view returns (bool);
 
-    function mint(address account, uint256 id, uint256 value) external;
+    function mint(address account, uint256 id, uint256 value, bytes memory data) external;
 
     function  mintBatch(address to, uint256[] memory ids, uint256[] memory values, bytes memory data) external;
 

@@ -31,20 +31,26 @@ object "ERC1155" {
       // in most programming languages, it'll evaluate all the case statements, even if one before it is true
       // in yul, it will stop once it finds the first case statemnet that matches
       switch selector()
-      // mint(address,uint256,uint256)
-      // todo: change this function selector to include the data at the end
+      // mint(address,uint256,uint256,bytes)
       /// @param to - the address to mint the tokens to
       /// @param id - the token id to mint
       /// @param amount - the amount of tokens to mint
       /// @param data - data for transfer hook, not implemented
-      case 0x156e29f6 {
-        // todo: if to address is a smart contract, require that it implements onERC1155Received
+      case 0x731133e9 {
         // decode calldata
         let to := decodeAsAddress(0)
         let id := decodeAsUint(1)
         let amount := decodeAsUint(2)
+        let dataOffset := decodeAsUint(3)
 
+        // mint tokens
         _mint(to, id, amount)
+
+        // only call if receiver is a smart contract
+        // check that the "to" address receiving the tokens has onERC1155Received implemented
+        if gt(extcodesize(to), 0) {
+          _erc1155RecievedCheck(caller(), 0, to, id, amount, dataOffset)
+        }
       }
 
       // mintBatch(address,uint256[],uint256[],bytes)
@@ -53,14 +59,22 @@ object "ERC1155" {
       /// @param ids - the array of token ids to mint
       /// @param amounts - the array of the amount of tokens to mint
       case 0x1f7fdffa {
-        // todo: include the data
+        // decode calldata
         // the first 32 bytes of a dynamic array in the calldata is the length of the array, then followed by the actual values of the elements
         // the argument position actually points to the offset in the calldata where the array data starts at
         let to := decodeAsAddress(0)
         let idArrayOffset := decodeAsUint(1)
         let amountArrayOffset := decodeAsUint(2)
+        let dataOffset := decodeAsUint(3)
 
-        _mintBatch(to, idArrayOffset, amountArrayOffset)
+        // batch mint tokens
+        _mintBatch(to, idArrayOffset, amountArrayOffset, dataOffset)
+
+        // todo implement batch acceptance check
+        // only call if receiver is a smart contract
+        // if gt(extcodesize(to), 0) {
+        //   _erc1155BatchRecievedCheck(caller(), 0, to, idArrayOffset, amountArrayOffset, dataOffset)
+        // }
       }
 
       // safeTransferFrom(address,address,uint256,uint256,bytes)
@@ -74,9 +88,16 @@ object "ERC1155" {
         let to := decodeAsAddress(1)
         let id := decodeAsUint(2)
         let amount := decodeAsUint(3)
-        let data := decodeAsUint(4)
+        let dataOffset := decodeAsUint(4)
 
-        _safeTransferFrom(from, to, id, amount, data)
+        // transfer tokens
+        _safeTransferFrom(from, to, id, amount)
+
+        // only call if reciever is a smart contract
+        // check that the "to" address receiving the tokens has onERC1155Received implemented
+        if gt(extcodesize(to), 0) {
+          _erc1155RecievedCheck(caller(), from, to, id, amount, dataOffset)
+        }
       }
 
       // safeBatchTransferFrom(address,address,uint256[],uint256[],bytes)
@@ -86,13 +107,16 @@ object "ERC1155" {
       /// @param amounts - array of the amount of tokens to transfer
       /// @param data - data for transfer hook - not implemented
       case 0x2eb2c2d6 {
+        // decode calldata
         let from := decodeAsAddress(0)
         let to := decodeAsAddress(1)
         let idArrayOffset := decodeAsUint(2)
         let amountArrayOffset := decodeAsUint(3)
-        let data := decodeAsUint(4)
+        let dataOffset := decodeAsUint(4)
 
-        _safeBatchTransferFrom(from, to, idArrayOffset, amountArrayOffset, data)
+        _safeBatchTransferFrom(from, to, idArrayOffset, amountArrayOffset, dataOffset)
+
+        // todo implement batch acceptance check
       }
 
       // balanceOf(address,uint256)
@@ -199,7 +223,7 @@ object "ERC1155" {
           v := calldataload(pos)
       }
 
-      function decodeDynamicArrayValueAtOffset(offset) -> v {
+      function decodeDynamicValueAtOffset(offset) -> v {
         // the offset value comes in as # of bytes. We divide by 32 bytes to get position number
         let positionOffset := div(offset, 0x20)
         v := decodeAsUint(positionOffset)
@@ -221,10 +245,10 @@ object "ERC1155" {
       }
 
       /// @dev 
-      function _mintBatch(account, idArrayOffset, amountArrayOffset) {
+      function _mintBatch(account, idArrayOffset, amountArrayOffset, dataOffset) {
         // id array and values array lengths must be the same
-        let idArrayLength := decodeDynamicArrayValueAtOffset(idArrayOffset)
-        let amountArrayLength := decodeDynamicArrayValueAtOffset(amountArrayOffset)
+        let idArrayLength := decodeDynamicValueAtOffset(idArrayOffset)
+        let amountArrayLength := decodeDynamicValueAtOffset(amountArrayOffset)
         if iszero(eq(idArrayLength, amountArrayLength)) {
           revert(0, 0)
         }
@@ -252,8 +276,8 @@ object "ERC1155" {
 
       function _balanceOfBatch(accountArrayOffset, idArrayOffset) {
         // account and id array must be the same length
-        let accountArrayLength := decodeDynamicArrayValueAtOffset(accountArrayOffset)
-        let idArrayLength := decodeDynamicArrayValueAtOffset(idArrayOffset)
+        let accountArrayLength := decodeDynamicValueAtOffset(accountArrayOffset)
+        let idArrayLength := decodeDynamicValueAtOffset(idArrayOffset)
         if iszero(eq(accountArrayLength, idArrayLength)) {
           revert(0, 0)
         }
@@ -308,7 +332,7 @@ object "ERC1155" {
         isApproved := sload(offset)
       }
 
-      function _safeTransferFrom(from, to, id, amount, data) {
+      function _safeTransferFrom(from, to, id, amount) {
         // check if from == msg.sender OR if msg.sender is an approved operator
         let isApprovedOperator := _isApprovedForAll(from, caller())
         if and(iszero(eq(caller(), from)), iszero(isApprovedOperator))  {
@@ -329,15 +353,12 @@ object "ERC1155" {
 
         sstore(prevToBalanceOffset, add(prevToBalance, amount))  // todo: check for integer overflow here??
         sstore(prevFromBalanceOffset, sub(prevFromBalance, amount))  // todo: check for integer underflow here??
-
-        // todo: implement onERC1155Received acceptance check
-        
       }
 
-      function _safeBatchTransferFrom(from, to, idArrayOffset, amountArrayOffset, data) {
+      function _safeBatchTransferFrom(from, to, idArrayOffset, amountArrayOffset, dataOffset) {
         // id array and amount array lengths must be the same
-        let idArrayLength := decodeDynamicArrayValueAtOffset(idArrayOffset)
-        let amountArrayLength := decodeDynamicArrayValueAtOffset(amountArrayOffset)
+        let idArrayLength := decodeDynamicValueAtOffset(idArrayOffset)
+        let amountArrayLength := decodeDynamicValueAtOffset(amountArrayOffset)
         if iszero(eq(idArrayLength, amountArrayLength)) {
           revert(0, 0)
         }
@@ -353,7 +374,7 @@ object "ERC1155" {
           let currentAmountPosition := add(add(div(amountArrayOffset, 0x20), 1), i)
           let currentAmountElement := decodeAsUint(currentAmountPosition)
 
-          _safeTransferFrom(from, to, currentIdElement, currentAmountElement, data)
+          _safeTransferFrom(from, to, currentIdElement, currentAmountElement)
         }
       }
 
@@ -371,7 +392,7 @@ object "ERC1155" {
         }
 
         // transfer to 0 address to burn tokens
-        _safeTransferFrom(from, 0, id, amount, 0)
+        _safeTransferFrom(from, 0, id, amount)
         // todo: emit burn event
       }
 
@@ -419,8 +440,7 @@ object "ERC1155" {
 
       /* --------- EVENTS --------- */
       // event signature hash is just the keccack256 has of the event signature
-
-
+    
 
       /* --------- HELPERS --------- */
       /// @dev used to return the value that you pass into the function
@@ -439,6 +459,95 @@ object "ERC1155" {
       function safeAdd(a, b) -> r {
         r := add(a, b)
         if or(lt(r, a), lt(r, b)) { revert(0, 0) }
+      }
+
+      function copyDataToMemory(memoryPointer, dataOffset) -> updatedMemoryPointer {
+        // get where the length offset of the bytes data is from the calldata
+        let dataLengthOffset := add(dataOffset, 4)
+        // use the offset to load the actual length of the bytes data
+        let dataLength := calldataload(dataLengthOffset)
+
+        // get total length of the bytes data to copy
+        let totalLength := add(0x20, dataLength) // add 32 bytes to also store the length of the data
+        let remainder := mod(totalLength, 0x20)
+
+        if remainder {
+          // need to pad it out to the right so that it's in increments of 32 bytes
+          totalLength := add(totalLength, sub(0x20, remainder))
+        }
+
+        // copy bytes data from calldata to memory
+        calldatacopy(memoryPointer, dataLengthOffset, totalLength)
+
+        // update memory pointer
+        updatedMemoryPointer := add(memoryPointer, totalLength)
+      }
+
+      function copyArrayToMemory(memoryPointer, arrayOffset) -> updatedMemoryPointer {
+          let arrayLengthOffset := add(arrayOffset, 4)
+          let arrayLength := calldataload(arrayLengthOffset)
+          let totalLength := add(0x20, mul(arrayLength, 0x20)) // add 32 bytes to store the length of the array
+
+          calldatacopy(memoryPointer, arrayLengthOffset, totalLength)
+
+          updatedMemoryPointer := add(memoryPointer, totalLength)
+      }
+
+      ///@dev must return if it's a smart contract
+      function _erc1155RecievedCheck(operator, from, to, id, amount, dataOffset) {
+        let onERC1155Selector := 0xf23a6e6100000000000000000000000000000000000000000000000000000000
+        let memoryPointer := 0x80
+
+        // load all your arguments to make the call
+        mstore(memoryPointer, onERC1155Selector)
+        mstore(add(memoryPointer, 0x04), operator)
+        mstore(add(memoryPointer, 0x24), from)
+        mstore(add(memoryPointer, 0x44), id)
+        mstore(add(memoryPointer, 0x64), amount)
+        mstore(add(memoryPointer, 0x84), 0xa0) // data offset starts at position 5 (160 bytes offset)
+
+        // copy the data bytes to memory to be used as argument for the externall call()
+        let endMemoryPointer := copyDataToMemory(add(memoryPointer, 0xa4), dataOffset)
+
+        // call(g, a, v, in, insize, out, outsize)
+        // store result of call into location 0 in memory
+        let success := call(gas(), to, 0, 0x80, sub(endMemoryPointer, 0x80), 0x00, 0x20)
+        let returnData := mload(0)
+
+        // revert if the call does not return bytes4(keccak256("onERC1155Received(address,address,uint256,uint256,bytes)"))
+        if iszero(eq(returnData, onERC1155Selector)) {
+          revert(0,0)
+        }
+      }
+
+      /// @dev must return onERC1155BatchReceived(address,address,uint256[],uint256[],bytes) if it's a smart contract
+      function _erc1155BatchRecievedCheck(operator, from, to, idOffset, amountOffset, dataOffset) {
+        // onERC1155BatchReceived(address,address,uint256[],uint256[],bytes) => 0xbc197c81
+        let onERC1155BatchSelector := 0xbc197c8100000000000000000000000000000000000000000000000000000000
+        let memoryPointer := 0x80
+
+        // load all your arguments to make the call
+        mstore(memoryPointer, onERC1155BatchSelector)
+        mstore(add(memoryPointer, 0x04), operator)
+        mstore(add(memoryPointer, 0x24), from)
+        mstore(add(memoryPointer, 0x44), 0x40) // idOffset starts at 96 (position 3)
+        mstore(add(memoryPointer, 0x64), 0x60)  // amountOffset starts at 128 (position 4)
+        mstore(add(memoryPointer, 0x84), 0x80)  // dataOffset starts at 160 (position 5)
+
+        let memoryPointerAfterIds := copyArrayToMemory(add(memoryPointer, 0xa4), idOffset)
+        let memoryPointerAfterAmounts := copyArrayToMemory(memoryPointerAfterIds, amountOffset)
+        let endMemoryPointer := copyDataToMemory(memoryPointerAfterAmounts, dataOffset)
+
+        // call(g, a, v, in, insize, out, outsize)
+        // store result of call into location 0 in memory
+        let success := call(gas(), to, 0, 0x80, sub(endMemoryPointer, 0x80), 0x00, 0x20)
+        logNumber(0, success)
+        let returnData := mload(0)
+
+        // revert if the call does not return bytes4(keccak256("onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"))
+        if iszero(eq(returnData, onERC1155BatchSelector)) {
+          revert(0,0)
+        }
       }
 
       /* --------- LOGGING HELPERS --------- */
