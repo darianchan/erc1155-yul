@@ -8,7 +8,9 @@ mapping(uint256 id => mapping(address account => uint256)) balances: (slot 1)
 mapping(address owner => mapping(address operator => bool)) operatorApprovalsSlot: (slot 2)
   - firstHash = keccak256(owner, 2)
   - slot = keccak256(operator, firstHash)
-uri: slot 3
+uri: slot 3 
+  - 0x68747470733A2F2F7777772E57474D494170652E636F6D
+  - https://www.WGMIApe.com
 */
 
 
@@ -16,8 +18,12 @@ object "ERC1155" {
   // constructor
   // this "code" node is the single executable code of the object. 
   code {
-    // store caller as owner in the owner storage slot
+    // store caller as owner in the owner storage slot (slot 0)
     sstore(0, caller())
+
+    // store URI: https://www.WGMIApe.com in URI slot (slot 3)
+    sstore(3, 0x00000000000000000000000000000000000000000000000000000000000002e) // store length of URI first
+    sstore(4, 0x68747470733A2F2F7777772E57474D494170652E636F6D00000000000000000) // store actual URI string
 
     // deploy the contract
     datacopy(0, dataoffset("Runtime"), datasize("Runtime"))
@@ -44,13 +50,9 @@ object "ERC1155" {
         let dataOffset := decodeAsUint(3)
 
         // mint tokens
-        _mint(to, id, amount)
+        _mint(to, id, amount, dataOffset)
 
-        // only call if receiver is a smart contract
-        // check that the "to" address receiving the tokens has onERC1155Received implemented
-        if gt(extcodesize(to), 0) {
-          _erc1155RecievedCheck(caller(), 0, to, id, amount, dataOffset)
-        }
+        // todo log mint event
       }
 
       // mintBatch(address,uint256[],uint256[],bytes)
@@ -70,11 +72,7 @@ object "ERC1155" {
         // batch mint tokens
         _mintBatch(to, idArrayOffset, amountArrayOffset, dataOffset)
 
-        // todo implement batch acceptance check
-        // only call if receiver is a smart contract
-        // if gt(extcodesize(to), 0) {
-        //   _erc1155BatchRecievedCheck(caller(), 0, to, idArrayOffset, amountArrayOffset, dataOffset)
-        // }
+        // todo log mintBatch event
       }
 
       // safeTransferFrom(address,address,uint256,uint256,bytes)
@@ -91,13 +89,7 @@ object "ERC1155" {
         let dataOffset := decodeAsUint(4)
 
         // transfer tokens
-        _safeTransferFrom(from, to, id, amount)
-
-        // only call if reciever is a smart contract
-        // check that the "to" address receiving the tokens has onERC1155Received implemented
-        if gt(extcodesize(to), 0) {
-          _erc1155RecievedCheck(caller(), from, to, id, amount, dataOffset)
-        }
+        _safeTransferFrom(from, to, id, amount, dataOffset)
       }
 
       // safeBatchTransferFrom(address,address,uint256[],uint256[],bytes)
@@ -115,8 +107,6 @@ object "ERC1155" {
         let dataOffset := decodeAsUint(4)
 
         _safeBatchTransferFrom(from, to, idArrayOffset, amountArrayOffset, dataOffset)
-
-        // todo implement batch acceptance check
       }
 
       // balanceOf(address,uint256)
@@ -260,12 +250,18 @@ object "ERC1155" {
       /// @param account - address to mint tokens to
       /// @param id - id of token to mint
       /// @param amount - amount of tokens to mint
-      function _mint(account, id, amount) {
+      function _mint(account, id, amount, dataOffset) {
         // get offset of where the account balance is stored and get current balance
         let offset := _accountBalanceStorageOffset(account, id)
         let prevBalance := sload(offset)
         // add current balance and amount of tokens minted and save in storage
         sstore(offset, add(prevBalance, amount))
+
+        // only call if receiver is a smart contract
+        // check that the "to" address receiving the tokens has onERC1155Received implemented
+        if gt(extcodesize(account), 0) {
+          _erc1155RecievedCheck(caller(), 0, account, id, amount, dataOffset)
+        }
         // todo: emit mint event
       }
 
@@ -295,7 +291,7 @@ object "ERC1155" {
           let currentAmountElement := decodeAsUint(currentAmountPosition)
           
           // mint user the amount of tokens for the given id
-          _mint(account, currentIdElement, currentAmountElement)
+          _mint(account, currentIdElement, currentAmountElement, dataOffset)
         }
       }
 
@@ -387,7 +383,7 @@ object "ERC1155" {
       /// @param to - address receiving the tokens
       /// @param id - id of token to transfer
       /// @param amount - amount of tokens to transfer
-      function _safeTransferFrom(from, to, id, amount) {
+      function _safeTransferFrom(from, to, id, amount, dataOffset) {
         // check if from == msg.sender OR if msg.sender is an approved operator
         let isApprovedOperator := _isApprovedForAll(from, caller())
         if and(iszero(eq(caller(), from)), iszero(isApprovedOperator))  {
@@ -407,8 +403,12 @@ object "ERC1155" {
         let prevFromBalance := sload(prevFromBalanceOffset)
 
         // store new balances
-        sstore(prevToBalanceOffset, add(prevToBalance, amount))  // todo: check for integer overflow here??
-        sstore(prevFromBalanceOffset, sub(prevFromBalance, amount))  // todo: check for integer underflow here??
+        sstore(prevToBalanceOffset, add(prevToBalance, amount))
+        sstore(prevFromBalanceOffset, sub(prevFromBalance, amount))
+
+        if gt(extcodesize(to), 0) {
+          _erc1155RecievedCheck(caller(), from, to, id, amount, dataOffset)
+        }
       }
 
       /// @dev batch transfer tokens
@@ -439,7 +439,7 @@ object "ERC1155" {
           let currentAmountElement := decodeAsUint(currentAmountPosition)
 
           // do the transfer
-          _safeTransferFrom(from, to, currentIdElement, currentAmountElement)
+          _safeTransferFrom(from, to, currentIdElement, currentAmountElement, dataOffset)
         }
       }
 
@@ -461,7 +461,7 @@ object "ERC1155" {
         }
 
         // transfer to 0 address to burn tokens
-        _safeTransferFrom(from, 0, id, amount)
+        _safeTransferFrom(from, 0, id, amount, 0)
         // todo: emit burn event
       }
 
@@ -549,6 +549,21 @@ object "ERC1155" {
 
       /* --------- EVENTS --------- */
       // event signature hash is just the keccack256 has of the event signature
+      // event TransferSingle(address indexed _operator, address indexed _from, address indexed _to, uint256 _id, uint256 _value);
+      function emitTransferSingle() {
+        let signatureHash := 0xc3d58168c5ae7397731d063d5bbf3d657854427343f4c083240f7aacaa2d0f62
+
+      }
+
+      // event TransferBatch(address indexed _operator, address indexed _from, address indexed _to, uint256[] _ids, uint256[] _values);
+      function emitTransferBatch() {
+        let signatureHash := 0x4a39dc06d4c0dbc64b70af90fd698a233a518aa5d07e595d983b8c0526c8f7fb
+      }
+
+      // event ApprovalForAll(address indexed _owner, address indexed _operator, bool _approved);
+      function emitApprovalForAll() {
+        let signatureHash := 0x17307eab39ab6107e8899845ad3d59bd9653f200f220920489ca2b5937696c31
+      }
     
 
       /* --------- HELPERS --------- */
@@ -570,7 +585,7 @@ object "ERC1155" {
         if or(lt(r, a), lt(r, b)) { revert(0, 0) }
       }
 
-      /// @dev used to copy bytes of data to memory
+      /// @dev copy bytes of data to memory
       /// @param memoryPointer - current memory pointer location
       /// @param dataOffset - offset in calldata where the data is located in
       /// @return the location of the memory pointer after the data has been written to memory
@@ -596,70 +611,56 @@ object "ERC1155" {
         updatedMemoryPointer := add(memoryPointer, totalLength)
       }
 
-      /// @dev 
+      /// @dev copy array values to memory
+      /// @param memoryPointer - current memory pointer location
+      /// @param arrayOffset - offset where the array value starts in the calldata
+      /// @return the location of the memory pointer after the array has been written to memory
       function copyArrayToMemory(memoryPointer, arrayOffset) -> updatedMemoryPointer {
-          let arrayLengthOffset := add(arrayOffset, 4)
-          let arrayLength := calldataload(arrayLengthOffset)
-          let totalLength := add(0x20, mul(arrayLength, 0x20)) // add 32 bytes to store the length of the array
+        // add 4 bytes for the function selector and get length of array
+        let arrayLengthOffset := add(arrayOffset, 4)
+        let arrayLength := calldataload(arrayLengthOffset)
 
-          calldatacopy(memoryPointer, arrayLengthOffset, totalLength)
+        // add 32 bytes to also store the length of the array itself
+        let totalLength := add(0x20, mul(arrayLength, 0x20))
 
-          updatedMemoryPointer := add(memoryPointer, totalLength)
+        // copy array values from calldata to memory
+        calldatacopy(memoryPointer, arrayLengthOffset, totalLength)
+
+        // update memory pointer after writing array values to memory
+        updatedMemoryPointer := add(memoryPointer, totalLength)
       }
 
-      /// @dev must return if it's a smart contract
+      /// @dev must return 4 byte function selector if receiver is a smart contract
+      /// @param operator - address calling this contract (msg.sender)
+      /// @param from - address transfering tokens. 0 if minting
+      /// @param to - address receiving tokens
+      /// @param id - id of token
+      /// @param amount - amount of tokens
+      /// @param dataOffsett - offset in calldata where the data is located in
       function _erc1155RecievedCheck(operator, from, to, id, amount, dataOffset) {
+        // function selector to return (padded out 32 bytes)
         let onERC1155Selector := 0xf23a6e6100000000000000000000000000000000000000000000000000000000
-        let memoryPointer := 0x80
+        let memoryPointer := 0x80  // initialize memory pointer
 
         // load all your arguments to make the call
         mstore(memoryPointer, onERC1155Selector)
-        mstore(add(memoryPointer, 0x04), operator)
+        mstore(add(memoryPointer, 0x04), operator)  // only need 4 bytes to encode function selector, rest of arguments require 32 bytes
         mstore(add(memoryPointer, 0x24), from)
         mstore(add(memoryPointer, 0x44), id)
         mstore(add(memoryPointer, 0x64), amount)
         mstore(add(memoryPointer, 0x84), 0xa0) // data offset starts at position 5 (160 bytes offset)
 
-        // copy the data bytes to memory to be used as argument for the externall call()
+        // copy the data bytes to memory to be used as argument for the externall call
         let endMemoryPointer := copyDataToMemory(add(memoryPointer, 0xa4), dataOffset)
 
         // call(g, a, v, in, insize, out, outsize)
         // store result of call into location 0 in memory
+        // data we send with call starts at 0x80 (initial memory pointer location) and size of data is endMemoryPointer - 0x80
         let success := call(gas(), to, 0, 0x80, sub(endMemoryPointer, 0x80), 0x00, 0x20)
         let returnData := mload(0)
 
         // revert if the call does not return bytes4(keccak256("onERC1155Received(address,address,uint256,uint256,bytes)"))
         if iszero(eq(returnData, onERC1155Selector)) {
-          revert(0,0)
-        }
-      }
-
-      /// @dev must return onERC1155BatchReceived(address,address,uint256[],uint256[],bytes) if it's a smart contract
-      function _erc1155BatchRecievedCheck(operator, from, to, idOffset, amountOffset, dataOffset) {
-        // onERC1155BatchReceived(address,address,uint256[],uint256[],bytes) => 0xbc197c81
-        let onERC1155BatchSelector := 0xbc197c8100000000000000000000000000000000000000000000000000000000
-        let memoryPointer := 0x80
-
-        // load all your arguments to make the call
-        mstore(memoryPointer, onERC1155BatchSelector)
-        mstore(add(memoryPointer, 0x04), operator)
-        mstore(add(memoryPointer, 0x24), from)
-        mstore(add(memoryPointer, 0x44), 0x40) // idOffset starts at 96 (position 3)
-        mstore(add(memoryPointer, 0x64), 0x60)  // amountOffset starts at 128 (position 4)
-        mstore(add(memoryPointer, 0x84), 0x80)  // dataOffset starts at 160 (position 5)
-
-        let memoryPointerAfterIds := copyArrayToMemory(add(memoryPointer, 0xa4), idOffset)
-        let memoryPointerAfterAmounts := copyArrayToMemory(memoryPointerAfterIds, amountOffset)
-        let endMemoryPointer := copyDataToMemory(memoryPointerAfterAmounts, dataOffset)
-
-        // call(g, a, v, in, insize, out, outsize)
-        // store result of call into location 0 in memory
-        let success := call(gas(), to, 0, 0x80, sub(endMemoryPointer, 0x80), 0x00, 0x20)
-        logNumber(0, success)
-        let returnData := mload(0)
-
-        // revert if the call does not return bytes4(keccak256("onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"))
-        if iszero(eq(returnData, onERC1155BatchSelector)) {
           revert(0,0)
         }
       }
