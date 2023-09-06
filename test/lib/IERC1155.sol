@@ -115,4 +115,6 @@ interface IERC1155 /* is ERC165 */ {
     function owner() external returns (address);
 
     function burn(address from, uint256 id, uint256 amount) external;
+
+    function burnBatch(address from, uint256[] memory ids, uint256[] memory amounts) external;
 }

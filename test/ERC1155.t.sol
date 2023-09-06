@@ -164,7 +164,43 @@ contract ERC1155Test is Test {
     }
 
     function testBatchBurn() public {
+        vm.startPrank(alice);
+        // create batch ids to mint
+        ids.push(1);
+        ids.push(2);
+        ids.push(3);
 
+        // create batch amounts to mint
+        amounts.push(10);
+        amounts.push(10);
+        amounts.push(10);
+
+        // 
+        uint aliceBalance1Before = token.balanceOf(alice, 1);
+        uint aliceBalance2Before = token.balanceOf(alice, 2);
+        uint aliceBalance3Before = token.balanceOf(alice, 3);
+        assertEq(aliceBalance1Before, 0);
+        assertEq(aliceBalance2Before, 0);
+        assertEq(aliceBalance3Before, 0);
+
+        token.mintBatch(alice, ids, amounts, "");
+
+        uint aliceBalance1After = token.balanceOf(alice, 1);
+        uint aliceBalance2After = token.balanceOf(alice, 2);
+        uint aliceBalance3After = token.balanceOf(alice, 3);
+        assertEq(aliceBalance1After, 10);
+        assertEq(aliceBalance2After, 10);
+        assertEq(aliceBalance3After, 10);
+
+        // now burn batch
+        token.burnBatch(alice, ids, amounts);
+
+        uint aliceBalance1AfterBurn = token.balanceOf(alice, 1);
+        uint aliceBalance2AfterBurn = token.balanceOf(alice, 2);
+        uint aliceBalance3AfterBurn = token.balanceOf(alice, 3);
+        assertEq(aliceBalance1AfterBurn, 0);
+        assertEq(aliceBalance2AfterBurn, 0);
+        assertEq(aliceBalance3AfterBurn, 0);
     }
 
     // @note there is no function for just approve. It's approve all

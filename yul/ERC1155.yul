@@ -123,8 +123,10 @@ object "ERC1155" {
       /// @param account - address to get the balance of
       /// @param id - the token id to get the balance of
       case 0x00fdd58e {
+        // decode calldata
         let account := decodeAsAddress(0)
         let id := decodeAsUint(1)
+        // return balance
         returnUint(_balanceOf(account, id))
       }
 
@@ -132,9 +134,11 @@ object "ERC1155" {
       /// @param accounts - array of accounts to get the balance of
       /// @param ids - array of token ids to get the balance of
       case 0x4e1273f4 {
+        // decode calldata
         let accountArrayOffset := decodeAsUint(0)
         let idArrayOffset := decodeAsUint(1)
 
+        // return batch balance
         _balanceOfBatch(accountArrayOffset, idArrayOffset)
       }
 
@@ -142,9 +146,11 @@ object "ERC1155" {
       /// @param operator - address to set approval as an operator for
       /// @param isApproved - whether the given address is approved as an operator for the function caller
       case 0xa22cb465 {
+        // decode calldata
         let operator := decodeAsAddress(0)
         let isApproved := decodeAsUint(1)
 
+        // set approval
         _setApprovalForAll(caller(), operator, isApproved)
       }
 
@@ -152,9 +158,11 @@ object "ERC1155" {
       /// @param tokenOwner - address of the owner of the token
       /// @param operator - address of the operator on behalf of the given token owner
       case 0xe985e9c5 {
+        // decode calldata
         let tokenOwner := decodeAsAddress(0)
         let operator := decodeAsAddress(1)
 
+        // return approval
         returnUint(_isApprovedForAll(tokenOwner, operator))
       }
 
@@ -163,11 +171,12 @@ object "ERC1155" {
       /// @param id - token id to burn
       /// @param amount - amount of tokens to burn
       case 0xf5298aca {
-        // require that from address is either the token owner or approved operator
+        // decode calldata
         let from := decodeAsAddress(0)
         let id := decodeAsUint(1)
         let amount := decodeAsUint(2)
 
+        // burn tokens
         _burn(from, id, amount)
       }
 
@@ -176,14 +185,17 @@ object "ERC1155" {
       /// @param ids - array of token ids to burn
       /// @param amounts - array of the amount of tokens to burn
       case 0x6b20c454 {
-        // require that the from address is either the token owner or approved operator
+        // decode calldata
         let from := decodeAsAddress(0)
         let idArrayOffset := decodeAsUint(1)
         let amountArrayOffset := decodeAsUint(2)
+
+        // burn tokens
+        _burnBatch(from, idArrayOffset, amountArrayOffset)
       }
 
       // owner()
-      /// @return - returns the address owner of the contract
+      /// @return - the address of the owner of the contract
       case 0x8da5cb5b {
         mstore(0, _owner())
         return(0, 0x20)
@@ -191,17 +203,20 @@ object "ERC1155" {
 
       default {
         // revert if no function selector matches
+        // "fallback" function
         revert(0, 0)
       }
 
       /* --------- CALLDATA DECODING --------- */
       /// @dev decode function selector
+      /// @return - the 4 byte function selector
       function selector() -> s {
         // load calldata from offset 0 and divide to get only first 4 bytes
         s := div(calldataload(0), 0x100000000000000000000000000000000000000000000000000000000)
       }
 
       /// @dev proper checks to ensure it is a valid adddress
+      /// @return - address at the given offset
       function decodeAsAddress(offset) -> v {
         // decode the calldata at the given offset
         v := decodeAsUint(offset)
@@ -211,7 +226,9 @@ object "ERC1155" {
         }
       }
 
-      /// @dev decode calldata at given offset
+      /// @dev decode calldata at given position
+      /// @param offset - represented as the integer position (1,2,3, etc...) and not the offset value in bytes
+      /// @return the value at the given position
       function decodeAsUint(offset) -> v {
           // 4 bytes to skip the function selector
           let pos := add(4, mul(offset, 0x20))
@@ -223,6 +240,8 @@ object "ERC1155" {
           v := calldataload(pos)
       }
 
+      /// @dev decode calldata at given offset
+      /// @param offset - represented as bytes
       function decodeDynamicValueAtOffset(offset) -> v {
         // the offset value comes in as # of bytes. We divide by 32 bytes to get position number
         let positionOffset := div(offset, 0x20)
@@ -231,20 +250,30 @@ object "ERC1155" {
 
       /* --------- INTERNAL FUNCTIONS --------- */
 
+      /// @dev used to get owner of the contract stored at the owner slot
       /// @return the address of the owner of the contract
       function _owner() -> o {
         o := sload(ownerSlot())
       }
 
       /// @dev mints the account the amount of tokens for token id
+      /// @param account - address to mint tokens to
+      /// @param id - id of token to mint
+      /// @param amount - amount of tokens to mint
       function _mint(account, id, amount) {
+        // get offset of where the account balance is stored and get current balance
         let offset := _accountBalanceStorageOffset(account, id)
         let prevBalance := sload(offset)
+        // add current balance and amount of tokens minted and save in storage
         sstore(offset, add(prevBalance, amount))
         // todo: emit mint event
       }
 
-      /// @dev 
+      /// @dev batch mints number of tokens for given token ids
+      /// @param account - address to mint tokens to
+      /// @param idArrayOffset - offset where ids array starts in calldata (in bytes)
+      /// @param amountArrayOffset - offset where amounts array starts in calldata (in bytes)
+      /// @param dataOffset - offset where data starts in calldata (in bytes)
       function _mintBatch(account, idArrayOffset, amountArrayOffset, dataOffset) {
         // id array and values array lengths must be the same
         let idArrayLength := decodeDynamicValueAtOffset(idArrayOffset)
@@ -256,10 +285,12 @@ object "ERC1155" {
         // for how many ids and values there are, call mint that many times
         for { let i := 0} lt(i, idArrayLength) { i := add(i, 1) } { 
           // add 1 because first value is the length value
+          // get the position as an integer, then decode the actual value
           let currentIdPosition := add(add(div(idArrayOffset, 0x20), 1), i)
           let currentIdElement := decodeAsUint(currentIdPosition)
 
           // add 1 because first value is the length value
+          // get the position as an integer, then decode the actual value
           let currentAmountPosition := add(add(div(amountArrayOffset, 0x20), 1), i)
           let currentAmountElement := decodeAsUint(currentAmountPosition)
           
@@ -268,16 +299,24 @@ object "ERC1155" {
         }
       }
 
-      /// @dev returns token balance for given address and token id
+      /// @dev get token balance for given address and token id
+      /// @param account - address of account
+      /// @param id - token id
+      /// @return account balance for given token id
       function _balanceOf(account, id) -> amount {
         let offset := _accountBalanceStorageOffset(account, id)
         amount := sload(offset)
       }
 
+      /// @dev gets the batch balance for given address and array of token ids
+      /// @param accountArrayOffset - offset where array of account addresses starts in calldata (in bytes)
+      /// @param idArrayOffset - offset where array of ids starts in calldata (in bytes)
       function _balanceOfBatch(accountArrayOffset, idArrayOffset) {
-        // account and id array must be the same length
+        // first value at offset is the length of the array
         let accountArrayLength := decodeDynamicValueAtOffset(accountArrayOffset)
         let idArrayLength := decodeDynamicValueAtOffset(idArrayOffset)
+
+        // account and id array must be the same length
         if iszero(eq(accountArrayLength, idArrayLength)) {
           revert(0, 0)
         }
@@ -285,24 +324,28 @@ object "ERC1155" {
         // initialize starting memory pointer position at 0x80
         let memoryPointer := 0x80
 
-        // this is the offset to where in memory the start of the array will be
+        // this is the offset to where relative to the return data the start of the return array will be
         // first value will be the length of the array
         mstore(memoryPointer, 0x20)
-        memoryPointer := add(memoryPointer, 0x20)
+        memoryPointer := add(memoryPointer, 0x20)  // increment memory pointer
 
         // store the array length first
         // need to follow the abi encoding for arrays, or solidty will throw errors when trying to decode it
+        // this means you need to store the offset, then length, then the actual values
         mstore(memoryPointer, accountArrayLength)
-        memoryPointer := add(memoryPointer, 0x20)
+        memoryPointer := add(memoryPointer, 0x20)  // increment memory pointer
 
+        // for how many addresses there are, call _balanceOf that many times
         for { let i := 0 } lt(i, accountArrayLength) { i := add(i, 1) } {
           // get current address
           // add 1 because the first value is the length value
+          // get the position as an integer, then decode the actual value
           let currentAccountPosition := add(add(div(accountArrayOffset, 0x20), 1), i)
           let currentAccountElement := decodeAsUint(currentAccountPosition)
 
           // get current id
           // add 1 because the first value is the length value
+          // get the position as an integer, then decode the actual value
           let currentIdPosition := add(add(div(idArrayOffset, 0x20), 1), i)
           let currentIdElement := decodeAsUint(currentIdPosition)
 
@@ -320,6 +363,9 @@ object "ERC1155" {
       }
 
       /// @dev sets approval for all
+      /// @param tokenOwner - addreess of the owner of the token
+      /// @param operator - address that will be approved on owner's behalf
+      /// @param isApproved - whether the operator is approved 
       function _setApprovalForAll(tokenOwner, operator, isApproved) {
         // get offset of the isApprovedForAll mapping
         let offset := _approvalForAllOffset(tokenOwner, operator)
@@ -327,11 +373,20 @@ object "ERC1155" {
         sstore(offset, isApproved)
       }
 
+      /// @dev gets whether the given operator address is approved for the token owner address
+      /// @param tokenOwner - addreess of the owner of the token
+      /// @param operator - address that is approved or not on the owner's behalf
+      /// @return - whether the operator is approved for the given token owner address
       function _isApprovedForAll(tokenOwner, operator) -> isApproved {
         let offset := _approvalForAllOffset(tokenOwner, operator)
         isApproved := sload(offset)
       }
 
+      /// @dev transfers amount of token id
+      /// @param from - address transfering the tokens
+      /// @param to - address receiving the tokens
+      /// @param id - id of token to transfer
+      /// @param amount - amount of tokens to transfer
       function _safeTransferFrom(from, to, id, amount) {
         // check if from == msg.sender OR if msg.sender is an approved operator
         let isApprovedOperator := _isApprovedForAll(from, caller())
@@ -351,10 +406,17 @@ object "ERC1155" {
         let prevFromBalanceOffset := _accountBalanceStorageOffset(from, id)
         let prevFromBalance := sload(prevFromBalanceOffset)
 
+        // store new balances
         sstore(prevToBalanceOffset, add(prevToBalance, amount))  // todo: check for integer overflow here??
         sstore(prevFromBalanceOffset, sub(prevFromBalance, amount))  // todo: check for integer underflow here??
       }
 
+      /// @dev batch transfer tokens
+      /// @param from - address transfering the tokens
+      /// @param to - address receiving the tokens
+      /// @param idArrayOffset - offset where array of token ids starts in calldata (in bytes)
+      /// @param amountArrayoffset - offset where array of values starts in calldata (in bytes)
+      /// @param dataOffset - offset where the bytes of data starts in calldarta (in bytes)
       function _safeBatchTransferFrom(from, to, idArrayOffset, amountArrayOffset, dataOffset) {
         // id array and amount array lengths must be the same
         let idArrayLength := decodeDynamicValueAtOffset(idArrayOffset)
@@ -367,17 +429,24 @@ object "ERC1155" {
         // safeTransferFrom has all the balance and opperator checks needed
         for {let i := 0} lt(i, idArrayLength) {i := add(i, 1)} {
           // add 1 because first value is the length value
+          // get the position as an integer, then decode the actual value
           let currentIdPosition := add(add(div(idArrayOffset, 0x20), 1), i)
           let currentIdElement := decodeAsUint(currentIdPosition)
 
           // add 1 because first value is the length value
+          // get the position as an integer, then decode the actual value
           let currentAmountPosition := add(add(div(amountArrayOffset, 0x20), 1), i)
           let currentAmountElement := decodeAsUint(currentAmountPosition)
 
+          // do the transfer
           _safeTransferFrom(from, to, currentIdElement, currentAmountElement)
         }
       }
 
+      /// @dev burn tokens by transfering to the zero address
+      /// @param from - address to burn tokens
+      /// @param id - token id to burn
+      /// @param amount - amount of tokens to burn
       function _burn(from, id, amount) {
         // check if from == msg.sender OR if msg.sender is an approved operator
         let isApprovedOperator := _isApprovedForAll(from, caller())
@@ -396,24 +465,61 @@ object "ERC1155" {
         // todo: emit burn event
       }
 
+      /// @dev burn batch of tokens by trnasfering to the zero address
+      /// @param from - address to burn tokens
+      /// @param idArrayOffset - offset where array of token ids starts in calldata (in bytes)
+      /// @param amountArrayoffset - offset where array of values starts in calldata (in bytes)
+      function _burnBatch(from, idArrayOffset, amountArrayOffset) {
+        // id array and values array lengths must be the same
+        let idArrayLength := decodeDynamicValueAtOffset(idArrayOffset)
+        let amountArrayLength := decodeDynamicValueAtOffset(amountArrayOffset)
+        if iszero(eq(idArrayLength, amountArrayLength)) {
+          revert(0, 0)
+        }
+
+        // for how many ids and values there are, call burn that many times
+        for { let i := 0} lt(i, idArrayLength) { i := add(i, 1) } { 
+          // add 1 because first value is the length value
+          // get the position as an integer, then decode the actual value
+          let currentIdPosition := add(add(div(idArrayOffset, 0x20), 1), i)
+          let currentIdElement := decodeAsUint(currentIdPosition)
+
+          // add 1 because first value is the length value
+          // get the position as an integer, then decode the actual value
+          let currentAmountPosition := add(add(div(amountArrayOffset, 0x20), 1), i)
+          let currentAmountElement := decodeAsUint(currentAmountPosition)
+          
+          // burn the amount of tokens for the given id
+          // checks for token owner are inside the internal _burn function
+          _burn(from, currentIdElement, currentAmountElement)
+        }
+      }
+
       /* --------- STORAGE ACCESS --------- */
+      /// @return slot where owner address is stored
       function ownerSlot() -> p {
         p := 0
       }
 
+      /// @return slot for balances mapping
       function balancesSlot() -> p {
         p := 1
       }
 
+      /// @return slot for operator approvals mapping
       function _operatorApprovalsSlot() -> p {
         p := 2
       }
 
-        function uriSlot() -> p {
+      /// @return slot for uri
+      function uriSlot() -> p {
         p := 3
       }
 
       /// @dev get the offset for the given account's balance => balances[id][account]
+      /// @param account - address to get stroage offset
+      /// @param id - token id
+      /// @return the offset at where the balance for the given account and id is stored
       function _accountBalanceStorageOffset(account, id) -> offset {
         // firstHash = keccak256(id, balancesSlot)
         // slot = keccak256(account, firstHash)
@@ -427,6 +533,9 @@ object "ERC1155" {
       }
 
       /// @dev get the offset for the given operator's account approval
+      /// @param tokenOwner - address of token owner
+      /// @param operator - address of operator
+      /// @return - offset where the approval is stored
       function _approvalForAllOffset(tokenOwner, operator) -> offset {
         // firstHash = keccak256(owner, operatorApprovalsSlot) 
         // storage slot = keccak256(operator, firstHash)
@@ -461,6 +570,10 @@ object "ERC1155" {
         if or(lt(r, a), lt(r, b)) { revert(0, 0) }
       }
 
+      /// @dev used to copy bytes of data to memory
+      /// @param memoryPointer - current memory pointer location
+      /// @param dataOffset - offset in calldata where the data is located in
+      /// @return the location of the memory pointer after the data has been written to memory
       function copyDataToMemory(memoryPointer, dataOffset) -> updatedMemoryPointer {
         // get where the length offset of the bytes data is from the calldata
         let dataLengthOffset := add(dataOffset, 4)
@@ -471,8 +584,8 @@ object "ERC1155" {
         let totalLength := add(0x20, dataLength) // add 32 bytes to also store the length of the data
         let remainder := mod(totalLength, 0x20)
 
+        // if not in 32 byte increments, need to pad it out to the right so that it's in increments of 32 bytes
         if remainder {
-          // need to pad it out to the right so that it's in increments of 32 bytes
           totalLength := add(totalLength, sub(0x20, remainder))
         }
 
@@ -483,6 +596,7 @@ object "ERC1155" {
         updatedMemoryPointer := add(memoryPointer, totalLength)
       }
 
+      /// @dev 
       function copyArrayToMemory(memoryPointer, arrayOffset) -> updatedMemoryPointer {
           let arrayLengthOffset := add(arrayOffset, 4)
           let arrayLength := calldataload(arrayLengthOffset)
@@ -493,7 +607,7 @@ object "ERC1155" {
           updatedMemoryPointer := add(memoryPointer, totalLength)
       }
 
-      ///@dev must return if it's a smart contract
+      /// @dev must return if it's a smart contract
       function _erc1155RecievedCheck(operator, from, to, id, amount, dataOffset) {
         let onERC1155Selector := 0xf23a6e6100000000000000000000000000000000000000000000000000000000
         let memoryPointer := 0x80
