@@ -49,12 +49,22 @@ contract ERC1155Test is Test {
     uint256[] amounts;
     address[] accounts;
 
+    // events testing
+    event TransferSingle(address indexed _operator, address indexed _from, address indexed _to, uint256 _id, uint256 _value);
+    event TransferBatch(address indexed _operator, address indexed _from, address indexed _to, uint256[] _ids, uint256[] _values);
+    event ApprovalForAll(address indexed _owner, address indexed _operator, bool _approved);
+
     function setUp() public {
         token = IERC1155(yulDeployer.deployContract("ERC1155"));
     }
 
     function testMintToEOA() public {
         vm.startPrank(alice);
+
+        // test emitting event
+        vm.expectEmit(true, true, true, true);
+        // We emit the event we expect to see
+        emit TransferSingle(alice, address(0), alice, 1, 10);
 
         // mint Alice 10 tokens of id 1
         token.mint(alice, 1, 10, "");
@@ -216,6 +226,11 @@ contract ERC1155Test is Test {
     function testApproveAll() public {
         vm.startPrank(alice);
 
+        // test emitting event
+        vm.expectEmit(true, true, true, true);
+        // We emit the event we expect to see
+        emit ApprovalForAll(alice, bob, true);
+
         // set Bob as an approved operator for Alice
         token.setApprovalForAll(bob, true);
         bool isApproved = token.isApprovedForAll(alice, bob);
@@ -233,6 +248,11 @@ contract ERC1155Test is Test {
         uint bobBalanceBefore = token.balanceOf(bob, 1);
         assertEq(aliceBalanceBefore, 10);
         assertEq(bobBalanceBefore, 0);
+
+        // test emitting event
+        vm.expectEmit(true, true, true, true);
+        // We emit the event we expect to see
+        emit TransferSingle(alice, alice, bob, 1, 10);
 
         // address,address,uint256,uint256,bytes
         token.safeTransferFrom(alice, bob, 1, 10, "");
@@ -310,6 +330,12 @@ contract ERC1155Test is Test {
 
         amounts.push(10);
         amounts.push(10);
+
+        // test emitting event
+        vm.expectEmit(true, true, true, true);
+        // We emit the event we expect to see
+        emit TransferBatch(alice, alice, bob, ids, amounts);
+
 
         token.safeBatchTransferFrom(alice, bob, ids, amounts, "");
         uint bobBalanceAfter1 = token.balanceOf(bob, 1);

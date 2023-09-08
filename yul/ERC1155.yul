@@ -5,7 +5,7 @@ owner: slot 0
 mapping(uint256 id => mapping(address account => uint256)) balances: (slot 1)
   - firstHash = keccak256(id, 1)
   - slot = keccak256(account, firstHash)
-mapping(address owner => mapping(address operator => bool)) operatorApprovalsSlot: (slot 2)
+mapping(address owner => mapping(address operator => bool)) operatorApprovals: (slot 2)
   - firstHash = keccak256(owner, 2)
   - slot = keccak256(operator, firstHash)
 uri: slot 3 
@@ -52,7 +52,8 @@ object "ERC1155" {
         // mint tokens
         _mint(to, id, amount, dataOffset)
 
-        // todo log mint event
+        // log mint event
+        emitTransferSingle(caller(), 0, to, id, amount)
       }
 
       // mintBatch(address,uint256[],uint256[],bytes)
@@ -90,6 +91,9 @@ object "ERC1155" {
 
         // transfer tokens
         _safeTransferFrom(from, to, id, amount, dataOffset)
+
+        // emit Transfer event
+        emitTransferSingle(caller(), from, to, id, amount)
       }
 
       // safeBatchTransferFrom(address,address,uint256[],uint256[],bytes)
@@ -107,6 +111,9 @@ object "ERC1155" {
         let dataOffset := decodeAsUint(4)
 
         _safeBatchTransferFrom(from, to, idArrayOffset, amountArrayOffset, dataOffset)
+
+        // emit Batch Transfer event
+        emitTransferBatch(caller(), from, to, idArrayOffset, amountArrayOffset)
       }
 
       // balanceOf(address,uint256)
@@ -142,6 +149,9 @@ object "ERC1155" {
 
         // set approval
         _setApprovalForAll(caller(), operator, isApproved)
+
+        // emit Approval event
+        emitApprovalForAll(caller(), operator, isApproved)
       }
 
       // isApprovedForAll(address,address)
@@ -550,19 +560,44 @@ object "ERC1155" {
       /* --------- EVENTS --------- */
       // event signature hash is just the keccack256 has of the event signature
       // event TransferSingle(address indexed _operator, address indexed _from, address indexed _to, uint256 _id, uint256 _value);
-      function emitTransferSingle() {
+      function emitTransferSingle(operator, from, to, id, value) {
+        // TransferSingle(address,address,address,uint256,uint256)
         let signatureHash := 0xc3d58168c5ae7397731d063d5bbf3d657854427343f4c083240f7aacaa2d0f62
-
+        // 4 indexed topics (including signature hash as first topic) and 2 non indexed - use log4
+        // store non-indexed arguments into memory (id and value)
+        mstore(0, id)
+        mstore(0x20, value)
+        log4(0, 0x40, signatureHash, operator, from, to)
       }
 
       // event TransferBatch(address indexed _operator, address indexed _from, address indexed _to, uint256[] _ids, uint256[] _values);
-      function emitTransferBatch() {
+      function emitTransferBatch(operator, from, to, idArrayOffset, amountArrayOffset) {
+        // TransferBatch(address,address,address,uint256[],uint256[])
         let signatureHash := 0x4a39dc06d4c0dbc64b70af90fd698a233a518aa5d07e595d983b8c0526c8f7fb
+        // 4 indexed topics and 2 non indexed
+        let memoryPointer := 0x80
+        mstore(memoryPointer, 0x40)  // ids array offset
+
+        // copy ids array to memory
+        let memoryPointerAfterId := copyArrayToMemory(add(memoryPointer, 0x40), idArrayOffset)
+
+        // store amounts array offset
+        mstore(add(memoryPointer, 0x20), sub(memoryPointerAfterId, memoryPointer))
+
+        // copy amounts array to memory
+        let memoryPointerAfterAmount := copyArrayToMemory(memoryPointerAfterId, amountArrayOffset)
+
+        // emit log
+        log4(memoryPointer, sub(memoryPointerAfterAmount, memoryPointer), signatureHash, operator, from, to) 
       }
 
       // event ApprovalForAll(address indexed _owner, address indexed _operator, bool _approved);
-      function emitApprovalForAll() {
+      function emitApprovalForAll(owner, operator, isApproved) {
+        // ApprovalForAll(address,address,bool)
         let signatureHash := 0x17307eab39ab6107e8899845ad3d59bd9653f200f220920489ca2b5937696c31
+        // 3 indexed topics (including signature hash as first topic) and 1 non indexed - use log3
+        mstore(0, isApproved)
+        log3(0, 0x20, signatureHash, owner, operator)
       }
     
 
