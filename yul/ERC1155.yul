@@ -573,12 +573,18 @@ object "ERC1155" {
       // event TransferBatch(address indexed _operator, address indexed _from, address indexed _to, uint256[] _ids, uint256[] _values);
       function emitTransferBatch(operator, from, to, idArrayOffset, amountArrayOffset) {
         // TransferBatch(address,address,address,uint256[],uint256[])
-        let signatureHash := 0x4a39dc06d4c0dbc64b70af90fd698a233a518aa5d07e595d983b8c0526c8f7fb
         // 4 indexed topics and 2 non indexed
+        let signatureHash := 0x4a39dc06d4c0dbc64b70af90fd698a233a518aa5d07e595d983b8c0526c8f7fb
+
+        // initialize memory pointer to store dynamic data types
         let memoryPointer := 0x80
-        mstore(memoryPointer, 0x40)  // ids array offset
+
+        // store ids array offset
+        // skip 0x20 bytes for ids array offset and skip 0x20 bytes for the amounts array offset
+        mstore(memoryPointer, 0x40)
 
         // copy ids array to memory
+        // ids data starts at 0x40 bytes after intial memory pointer
         let memoryPointerAfterId := copyArrayToMemory(add(memoryPointer, 0x40), idArrayOffset)
 
         // store amounts array offset
