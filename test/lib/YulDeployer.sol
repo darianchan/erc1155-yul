@@ -17,7 +17,6 @@ contract YulDeployer is Test {
         inputs[2] = bashCommand;
 
         bytes memory bytecode = abi.decode(vm.ffi(inputs), (bytes));
-        // bytes memory bytecode = hex"600a600d600039600a6000f3fe600035608052366080f3";
 
         ///@notice deploy the bytecode with the create instruction
         address deployedAddress;
