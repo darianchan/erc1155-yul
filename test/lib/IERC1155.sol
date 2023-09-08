@@ -108,13 +108,42 @@ interface IERC1155 /* is ERC165 */ {
     */
     function isApprovedForAll(address _owner, address _operator) external view returns (bool);
 
+    /**
+        @notice mints tokens
+        @param account - the a to mint the tokens to
+        @param id - the token id to mint
+        @param value - the amount of tokens to mint
+        @param data - data for transfer hook
+    */
     function mint(address account, uint256 id, uint256 value, bytes memory data) external;
 
+    /**
+        @notice batch mint tokens
+        @param to - the address to mint the tokens to
+        @param ids - the array of token ids to mint
+        @param values - the array of the amount of tokens to mint
+    */
     function  mintBatch(address to, uint256[] memory ids, uint256[] memory values, bytes memory data) external;
 
+    /**
+        @notice - query for the address of the owner of the contract
+        @return - the address of the owner of the contract
+    */
     function owner() external returns (address);
 
+    /**
+        @notice burn tokens by transfering to the zero address
+        @param from - address to burn tokens
+        @param id - token id to burn
+        @param amount - amount of tokens to burn 
+    */
     function burn(address from, uint256 id, uint256 amount) external;
 
+    /**
+        @notice burn batch of tokens by trnasfering to the zero address
+        @param from - address to burn tokens
+        @param ids - the array of token ids to burn
+        @param amounts - the array of the amount of tokens to burn
+    */
     function burnBatch(address from, uint256[] memory ids, uint256[] memory amounts) external;
 }

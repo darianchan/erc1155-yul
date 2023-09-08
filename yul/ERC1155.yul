@@ -41,7 +41,7 @@ object "ERC1155" {
       /// @param to - the address to mint the tokens to
       /// @param id - the token id to mint
       /// @param amount - the amount of tokens to mint
-      /// @param data - data for transfer hook, not implemented
+      /// @param data - data for transfer hook
       case 0x731133e9 {
         // decode calldata
         let to := decodeAsAddress(0)
