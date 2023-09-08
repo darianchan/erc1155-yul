@@ -556,7 +556,6 @@ object "ERC1155" {
         offset := keccak256(0x40, 0x40) // takes starting position and then how many bytes from there you want to hash
       }
 
-
       /* --------- EVENTS --------- */
       // event signature hash is just the keccack256 has of the event signature
       // event TransferSingle(address indexed _operator, address indexed _from, address indexed _to, uint256 _id, uint256 _value);
