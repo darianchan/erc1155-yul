@@ -23,7 +23,7 @@ object "ERC1155" {
 
     // store URI: https://www.WGMIApe.com in URI slot (slot 3)
     sstore(3, 0x00000000000000000000000000000000000000000000000000000000000002e) // store length of URI first
-    sstore(4, 0x68747470733A2F2F7777772E57474D494170652E636F6D00000000000000000) // store actual URI string
+    sstore(4, 0x68747470733A2F2F7777772E57474D494170652E636F6D00000000000000000) // store actual encoded URI string
 
     // deploy the contract
     datacopy(0, dataoffset("Runtime"), datasize("Runtime"))
@@ -84,6 +84,7 @@ object "ERC1155" {
       /// @param amount - amount of tokens to transfer
       /// @param data - data for transfer hook - not implemented
       case 0xf242432a {
+        // decode calldata
         let from := decodeAsAddress(0)
         let to := decodeAsAddress(1)
         let id := decodeAsUint(2)
@@ -111,6 +112,7 @@ object "ERC1155" {
         let amountArrayOffset := decodeAsUint(3)
         let dataOffset := decodeAsUint(4)
 
+        // batch transfer tokens
         _safeBatchTransferFrom(from, to, idArrayOffset, amountArrayOffset, dataOffset)
 
         // emit Batch Transfer event
@@ -124,6 +126,7 @@ object "ERC1155" {
         // decode calldata
         let account := decodeAsAddress(0)
         let id := decodeAsUint(1)
+
         // return balance
         returnUint(_balanceOf(account, id))
       }
@@ -227,7 +230,7 @@ object "ERC1155" {
       function decodeAsAddress(offset) -> v {
         // decode the calldata at the given offset
         v := decodeAsUint(offset)
-        // checks whether it is a valid address and reverts if so
+        // checks whether it is a valid address and reverts if not
         if iszero(iszero(and(v, not(0xffffffffffffffffffffffffffffffffffffffff)))) {
             revert(0, 0)
         }

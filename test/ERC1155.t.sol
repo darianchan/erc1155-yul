@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
-// TODO: change floating pragma
-pragma solidity >=0.8.0;
+pragma solidity 0.8.15;
 
 import "forge-std/Test.sol";
 import "./lib/YulDeployer.sol";
@@ -73,7 +72,6 @@ contract ERC1155Test is Test {
         
         vm.stopPrank();
     }
-
 
     function testMintToERC1155Recipient() public {
         // check that receiver implements the IERC1155Receiver.onERC1155Received - https://docs.openzeppelin.com/contracts/3.x/api/token/erc1155#IERC1155Receiver-onERC1155Received-address-address-uint256-uint256-bytes-
@@ -336,7 +334,7 @@ contract ERC1155Test is Test {
         // We emit the event we expect to see
         emit TransferBatch(alice, alice, bob, ids, amounts);
 
-
+        // do Batch transfer and check balances afterwards
         token.safeBatchTransferFrom(alice, bob, ids, amounts, "");
         uint bobBalanceAfter1 = token.balanceOf(bob, 1);
         uint aliceBalanceAfter1 = token.balanceOf(alice, 1);
@@ -377,6 +375,7 @@ contract ERC1155Test is Test {
         amounts.push(10);
         amounts.push(10);
 
+        // do Batch transfer and check balances afterwards
         token.safeBatchTransferFrom(alice, reciever, ids, amounts, "");
         uint recieverBalanceAfter1 = token.balanceOf(reciever, 1);
         uint aliceBalanceAfter1 = token.balanceOf(alice, 1);
