@@ -57,31 +57,31 @@ contract ERC1155Test is Test {
         token = IERC1155(yulDeployer.deployContract("ERC1155"));
     }
 
-    function testMintToEOA() public {
+    function testMintToEOA(uint256 id, uint256 amount) public {
         vm.startPrank(alice);
 
         // test emitting event
         vm.expectEmit(true, true, true, true);
         // We emit the event we expect to see
-        emit TransferSingle(alice, address(0), alice, 1, 10);
+        emit TransferSingle(alice, address(0), alice, id, amount);
 
         // mint Alice 10 tokens of id 1
-        token.mint(alice, 1, 10, "");
-        uint aliceBalance = token.balanceOf(alice, 1);
-        assertEq(aliceBalance, 10);
+        token.mint(alice, id, amount, "");
+        uint aliceBalance = token.balanceOf(alice, id);
+        assertEq(aliceBalance, amount);
         
         vm.stopPrank();
     }
 
-    function testMintToERC1155Recipient() public {
+    function testMintToERC1155Recipient(uint256 id, uint256 amount) public {
         // check that receiver implements the IERC1155Receiver.onERC1155Received - https://docs.openzeppelin.com/contracts/3.x/api/token/erc1155#IERC1155Receiver-onERC1155Received-address-address-uint256-uint256-bytes-
         address reciever = address(erc1155reciever);
         vm.startPrank(address(reciever));
 
         // mint smart contract 10 tokens of id 1
-        token.mint(reciever, 1, 10, "data");
-        uint recieverBalance = token.balanceOf(reciever, 1);
-        assertEq(recieverBalance, 10);
+        token.mint(reciever, id, amount, "data");
+        uint recieverBalance = token.balanceOf(reciever, id);
+        assertEq(recieverBalance, amount);
         
         vm.stopPrank();
     }
@@ -156,23 +156,18 @@ contract ERC1155Test is Test {
         vm.stopPrank();
     }
 
-    function testBurn() public {
+    function testBurn(uint256 id, uint256 amount) public {
         vm.startPrank(alice);
 
-        // mint Alice 10 tokens of id 1
-        token.mint(alice, 1, 10, "");
-        uint aliceBalance = token.balanceOf(alice, 1);
-        assertEq(aliceBalance, 10);
+        // mint Alice 10 tokens
+        token.mint(alice, id, amount, "");
+        uint aliceBalance = token.balanceOf(alice, id);
+        assertEq(aliceBalance, amount);
 
-        // burn 5 tokens from Alice of id 1
-        token.burn(alice, 1, 5);
-        uint aliceBalanceAfter = token.balanceOf(alice, 1);
-        assertEq(aliceBalanceAfter, 5);
-
-        // burn another 5 tokens from Alice of id 1
-        token.burn(alice, 1, 5);
-        uint aliceBalanceAfter2 = token.balanceOf(alice, 1);
-        assertEq(aliceBalanceAfter2, 0);
+        // burn tokens from Alice
+        token.burn(alice, id, amount);
+        uint aliceBalanceAfter = token.balanceOf(alice, id);
+        assertEq(aliceBalanceAfter, 0);
         
         vm.stopPrank();
     }
@@ -237,72 +232,71 @@ contract ERC1155Test is Test {
         vm.stopPrank();
     }
 
-    function testSafeTransferFromToEOA() public {
+    function testSafeTransferFromToEOA(uint256 id, uint256 amount) public {
         vm.startPrank(alice);
 
         // mint Alice 10 tokens of id 1
-        token.mint(alice, 1, 10, "");
-        uint aliceBalanceBefore = token.balanceOf(alice, 1);
-        uint bobBalanceBefore = token.balanceOf(bob, 1);
-        assertEq(aliceBalanceBefore, 10);
+        token.mint(alice, id, amount, "");
+        uint aliceBalanceBefore = token.balanceOf(alice, id);
+        uint bobBalanceBefore = token.balanceOf(bob, id);
+        assertEq(aliceBalanceBefore, amount);
         assertEq(bobBalanceBefore, 0);
 
         // test emitting event
         vm.expectEmit(true, true, true, true);
         // We emit the event we expect to see
-        emit TransferSingle(alice, alice, bob, 1, 10);
+        emit TransferSingle(alice, alice, bob, id, amount);
 
         // address,address,uint256,uint256,bytes
-        token.safeTransferFrom(alice, bob, 1, 10, "");
-        uint bobBalanceAfter = token.balanceOf(bob, 1);
-        uint aliceBalanceAfter = token.balanceOf(alice, 1);
-        assertEq(bobBalanceAfter, 10);
+        token.safeTransferFrom(alice, bob, id, amount, "");
+        uint bobBalanceAfter = token.balanceOf(bob, id);
+        uint aliceBalanceAfter = token.balanceOf(alice, id);
+        assertEq(bobBalanceAfter, amount);
         assertEq(aliceBalanceAfter, 0);
 
         // testing safeTransferFrom approvals
         // mint Alice 10 more tokens and have her set Bob as an approved operator
-        token.mint(alice, 1, 10, "");
+        token.mint(alice, id, amount, "");
         token.setApprovalForAll(bob, true);
         vm.stopPrank();
 
         // setting Bob as the function caller, transfer 10 tokens from Alice to Charlie
         vm.prank(bob);
-        token.safeTransferFrom(alice, charlie, 1, 10, "");
-        uint charlieBalanceAfter = token.balanceOf(charlie, 1);
-        assertEq(charlieBalanceAfter, 10);
-
+        token.safeTransferFrom(alice, charlie, id, amount, "");
+        uint charlieBalanceAfter = token.balanceOf(charlie, id);
+        assertEq(charlieBalanceAfter, amount);
     }
 
-    function testSafeTransferFromToERC1155Recipient() public {
+    function testSafeTransferFromToERC1155Recipient(uint256 id, uint256 amount) public {
         // receiver must implement IERC1155Receiver.onERC1155Received - https://docs.openzeppelin.com/contracts/3.x/api/token/erc1155#IERC1155Receiver-onERC1155Received-address-address-uint256-uint256-bytes-
         vm.startPrank(alice);
 
         // mint Alice 10 tokens of id 1
-        token.mint(alice, 1, 10, "");
-        uint aliceBalanceBefore = token.balanceOf(alice, 1);
-        uint bobBalanceBefore = token.balanceOf(bob, 1);
-        assertEq(aliceBalanceBefore, 10);
+        token.mint(alice, id, amount, "");
+        uint aliceBalanceBefore = token.balanceOf(alice, id);
+        uint bobBalanceBefore = token.balanceOf(bob, id);
+        assertEq(aliceBalanceBefore, amount);
         assertEq(bobBalanceBefore, 0);
 
         // safe transfer from Alice To Bob
-        token.safeTransferFrom(alice, bob, 1, 10, "");
-        uint bobBalanceAfter = token.balanceOf(bob, 1);
-        uint aliceBalanceAfter = token.balanceOf(alice, 1);
-        assertEq(bobBalanceAfter, 10);
+        token.safeTransferFrom(alice, bob, id, amount, "");
+        uint bobBalanceAfter = token.balanceOf(bob, id);
+        uint aliceBalanceAfter = token.balanceOf(alice, id);
+        assertEq(bobBalanceAfter, amount);
         assertEq(aliceBalanceAfter, 0);
 
         // testing safeTransferFrom approvals
         // mint alice 10 more tokens and have her set bob as an approved operator
-        token.mint(alice, 1, 10, "");
+        token.mint(alice, id, amount, "");
         token.setApprovalForAll(bob, true);
         vm.stopPrank();
 
         // setting Bob as the function caller, transfer 10 tokens from Alice to smart contract receiver
         vm.prank(bob);
         address reciever = address(erc1155reciever);
-        token.safeTransferFrom(alice, reciever, 1, 10, "");
-        uint recieverBalanceAfter = token.balanceOf(reciever, 1);
-        assertEq(recieverBalanceAfter, 10);
+        token.safeTransferFrom(alice, reciever, id, amount, "");
+        uint recieverBalanceAfter = token.balanceOf(reciever, id);
+        assertEq(recieverBalanceAfter, amount);
     }
 
     function testSafeBatchTransferFromToEOA() public {
